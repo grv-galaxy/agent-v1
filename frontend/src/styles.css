@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #0D0D0D;
+  color: #e8e8e8;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #0D0D0D;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+@keyframes settingsSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes splashLogoPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 28px rgba(99, 102, 241, 0.18);
+  }
+
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 42px rgba(99, 102, 241, 0.3);
+  }
+}
+
+@keyframes splashDot {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+
+  45%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splashCheckScale {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes connectionDotPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes connectionToastFade {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@keyframes networkBannerSlide {
+  from {
+    transform: translateY(-100%);
+  }
+
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes appRouteFade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes memoryBadgeFade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  15%,
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+.splash-logo-pulse {
+  animation: splashLogoPulse 1.8s ease-in-out infinite;
+}
+
+.splash-dot {
+  animation: splashDot 1.2s ease-in-out infinite;
+  opacity: 0;
+}
+
+.splash-dot-delay-1 {
+  animation-delay: 0.4s;
+}
+
+.splash-dot-delay-2 {
+  animation-delay: 0.8s;
+}
+
+.splash-check-scale {
+  animation: splashCheckScale 200ms ease-out both;
+}
+
+.connection-dot-pulse {
+  animation: connectionDotPulse 1s ease-in-out infinite;
+}
+
+.connection-toast-fade {
+  animation: connectionToastFade 200ms ease-out both;
+}
+
+.network-banner {
+  animation: networkBannerSlide 250ms ease-out both;
+}
+
+.app-route-fade {
+  animation: appRouteFade 220ms ease-out both;
+}
+
+.memory-compression-badge {
+  animation: memoryBadgeFade 2s ease-in-out both;
+}

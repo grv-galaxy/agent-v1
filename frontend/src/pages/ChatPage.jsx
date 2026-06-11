@@ -41,7 +41,11 @@ function createEmptySession() {
     session_id: sessionId,
     title: 'New Chat',
     startedAt: new Date(),
-    messages: [],
+    displayMessages: [], // <-- NEW: full history, rendered in UI, never pruned
+    contextMessages: [], // <-- NEW: rolling window, sent to LLM, pruned on compact
+    rolling_summary: "", // <-- NEW CHANGE DONE HERE
+    compression_epoch: 0,
+    summary_history: [],
     hasUserTitle: false,
     pinned: false,
     archived: false,
@@ -523,12 +527,13 @@ export default function ChatPage({
     sessions.find((session) => session.id === activeSessionId) ||
     sessions.find((session) => !session.archived) ||
     sessions[0];
-  const messages = activeSession?.messages || [];
+  const displayMessages = activeSession?.displayMessages || []; // for UI rendering
+  const contextMessages = activeSession?.contextMessages || []; // for API payload
   const providerLabel = provider.providerLabel || provider.provider;
   const providerInitial = (providerLabel || 'A').trim().charAt(0).toUpperCase();
   const currentChatTitle = activeSession?.title || 'New chat';
   const activeMemorySessionId = activeSession?.session_id || activeSession?.id || 'default';
-  const hasMessages = messages.length > 0;
+  const hasMessages = displayMessages.length > 0;
 
   const sessionItems = useMemo(
     () =>
@@ -584,10 +589,10 @@ export default function ChatPage({
   }, []);
 
   useEffect(() => {
-    if (messages.length > 0) {
+    if (displayMessages.length > 0) {
       messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isStreaming]);
+  }, [displayMessages, isStreaming]);
 
   useEffect(() => {
     if (!memoryBadgeSessionId) {
@@ -804,7 +809,7 @@ export default function ChatPage({
   function startNewChat() {
     setViewMode('chat');
 
-    if (activeSession && activeSession.messages.length === 0 && !activeSession.archived) {
+    if (activeSession && (activeSession.displayMessages || []).length === 0 && !activeSession.archived) { // ✓ Fixed
       resetComposerDraft();
       setErrorMessage('');
       return;
@@ -828,7 +833,12 @@ export default function ChatPage({
     setSessions((currentSessions) =>
       currentSessions.map((session) => ({
         ...session,
-        messages: session.messages.map((message) =>
+        displayMessages: (session.displayMessages || []).map((message) =>
+          message.id === id
+            ? { ...message, content: `${message.content}${chunk}` }
+            : message,
+        ),
+        contextMessages: (session.contextMessages || []).map((message) =>
           message.id === id
             ? { ...message, content: `${message.content}${chunk}` }
             : message,
@@ -882,7 +892,8 @@ export default function ChatPage({
     activeAssistantMessageIdRef.current = assistantMessage.id;
     interruptedMessageIdRef.current = null;
 
-    const nextMessages = [...messages, userMessage];
+    const nextDisplayMessages = [...displayMessages, userMessage]; // <-- NEW
+    const nextContextMessages = [...contextMessages, userMessage]; // <-- NEW
     const shouldSetTitle = !activeSession.hasUserTitle;
     const nextTitle = shouldSetTitle
       ? createSessionTitleFromContent(content)
@@ -895,7 +906,8 @@ export default function ChatPage({
               ...session,
               title: nextTitle,
               hasUserTitle: true,
-              messages: [...nextMessages, assistantMessage],
+              displayMessages: [...nextDisplayMessages, assistantMessage], // <-- NEW
+              contextMessages: [...nextContextMessages, assistantMessage], // <-- NEW
             }
           : session,
       ),
@@ -906,6 +918,20 @@ export default function ChatPage({
 
     const streamController = new AbortController();
     streamAbortControllerRef.current = streamController;
+
+    // Set compression rules and build rolling limits dynamically
+    const TRIGGER_THRESHOLD = 30;
+    const RAW_BUFFER_SIZE = 10;
+    const ROLLING_LIMIT = 20;
+
+    const shouldCompress = nextContextMessages.length >= TRIGGER_THRESHOLD;
+    const compressionChunk = shouldCompress
+      ? nextContextMessages.slice(0, nextContextMessages.length - RAW_BUFFER_SIZE)
+      : [];
+
+    const rawBufferMessages = shouldCompress
+      ? nextContextMessages.slice(-RAW_BUFFER_SIZE)
+      : nextContextMessages.slice(-ROLLING_LIMIT);
 
     void (async () => {
       try {
@@ -919,8 +945,16 @@ export default function ChatPage({
             provider: provider.provider,
             api_key: provider.apiKey,
             model_name: provider.modelName,
-            ...getMemoryPayloadFields(),
-            messages: nextMessages.map(({ role, content: messageContent }) => ({
+            ...getMemoryPayloadFields(), // Maintain memory configuration values
+            rolling_summary: activeSession.rolling_summary || "", // <-- NEW: snake_case only
+            compression_epoch: activeSession.compression_epoch || 0,
+            summary_history: activeSession.summary_history || [],
+            messages: rawBufferMessages.map(({ role, content: messageContent }) => ({
+              role,
+              content: messageContent,
+            })),
+            should_compress: shouldCompress,
+            compression_chunk: compressionChunk.map(({ role, content: messageContent }) => ({
               role,
               content: messageContent,
             })),
@@ -991,6 +1025,31 @@ export default function ChatPage({
                     toolTimeoutAbortRef.current = true;
                     streamController.abort();
                   }, 10000);
+                  continue;
+                }
+                // Handle memory compression control frame
+                // Handle memory compression control frame
+                if (parsed.control === "memory_compact") {
+                  setSessions((currentSessions) =>
+                    currentSessions.map((session) => {
+                      if (session.id !== activeSession.id) return session;
+
+                      const newHistory = [
+                        ...(session.summary_history || []).slice(-2),
+                        session.rolling_summary,
+                      ].filter(Boolean);
+
+                      return {
+                        ...session,
+                        rolling_summary: parsed.rolling_summary, // keep snake_case only — remove rollingSummary
+                        contextMessages: session.contextMessages.slice(parsed.truncated_count), // <-- NEW: Prune context window only
+                        // displayMessages is left completely untouched so user history is never lost!
+                        compression_epoch: parsed.compression_epoch ?? ((session.compression_epoch || 0) + 1),
+                        summary_history: newHistory,
+                      };
+                    }),
+                  );
+                  setMemoryBadgeSessionId(activeMemorySessionId);
                   continue;
                 }
                 if (parsed.memory_compressed) {
@@ -1244,7 +1303,7 @@ export default function ChatPage({
                 <div className="flex h-full flex-col">
                   <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-8 max-[599px]:px-4">
                     <div className={`mx-auto flex w-full ${MESSAGE_COLUMN_WIDTH} flex-col gap-8`}>
-                      {messages.map((message) => {
+                      {displayMessages.map((message) => { // <-- NEW: map over displayMessages
                         const isUser = message.role === 'user';
                         const isStreamingAssistant =
                           isStreaming &&
@@ -1253,7 +1312,7 @@ export default function ChatPage({
 
                         if (isUser) {
                           return (
-                            <div key={message.id} className={`${CONTENT_OFFSET} flex max-w-[760px] justify-end`}>
+                            <div key={message.id} className={`${CONTENT_OFFSET} flex max-w-[760px]} justify-end`}>
                               <div className="max-w-[75%] rounded-[18px_18px_4px_18px] bg-[#6366F1] px-4 py-3 text-[15px] leading-6 text-white">
                                 {message.content}
                               </div>
@@ -1277,7 +1336,7 @@ export default function ChatPage({
                                 isStreaming={isStreamingAssistant}
                               />
                               {memoryBadgeSessionId === activeMemorySessionId &&
-                              message.id === messages[messages.length - 1]?.id ? (
+                              message.id === displayMessages[displayMessages.length - 1]?.id ? ( // <-- NEW: Use displayMessages here too
                                 <MemoryCompressionBadge visible />
                               ) : null}
                               {toolThinking?.messageId === message.id ? (

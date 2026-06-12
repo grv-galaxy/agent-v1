@@ -23,7 +23,13 @@ def get_saved_config():
         "isConfigured": bool(provider and api_key and model_name),
         "provider": provider,
         "model_name": model_name,
-        "api_key": api_key
+        "api_key": api_key,
+        # 🧠 Forward memory keys from .env so auth.py can read them
+        "MEMORY_ENABLED": file_values.get("MEMORY_ENABLED", "false").strip(),
+        "USE_SEPARATE_MEMORY_PROVIDER": file_values.get("USE_SEPARATE_MEMORY_PROVIDER", "false").strip(),
+        "MEMORY_PROVIDER": file_values.get("MEMORY_PROVIDER", "").strip(),
+        "MEMORY_MODEL": file_values.get("MEMORY_MODEL", "").strip(),
+        "MEMORY_API_KEY": file_values.get("MEMORY_API_KEY", "").strip()
     }
 
 def set_saved_config(provider: str, model_name: str, api_key: str = None):
@@ -78,7 +84,14 @@ async def get_config():
         "isConfigured": config["isConfigured"],
         "provider": config["provider"],
         "model": config["model_name"],
-        "hasApiKey": bool(config["api_key"])
+        "hasApiKey": bool(config["api_key"]),
+        # 🧠 Added memory payload configurations so the frontend hydrates perfectly on restart
+        # 🧠 Defensive lookups checking both case variants so hydration never misses a beat
+        "memory_enabled": str(config.get("MEMORY_ENABLED") or config.get("memory_enabled", "false")).lower() == "true",
+        "use_separate_memory_provider": str(config.get("USE_SEPARATE_MEMORY_PROVIDER") or config.get("use_separate_memory_provider", "false")).lower() == "true",
+        "memory_provider": config.get("MEMORY_PROVIDER") or config.get("memory_provider", ""),
+        "memory_model": config.get("MEMORY_MODEL") or config.get("memory_model", ""),
+        "has_memory_api_key": bool(config.get("MEMORY_API_KEY") or config.get("memory_api_key"))
     }
 
 @router.post("/verify-provider")

@@ -30,6 +30,9 @@ class ChatRequest(BaseModel):
     summary_history: Optional[List[str]] = [] # <-- ADDED
     should_compress: Optional[bool] = False   # <-- ADDED FLAG TO EXPLICITLY TRIGGER COMPRESSION
     compression_chunk: Optional[List[Message]] = []  # <-- ADDED FIELD TO PASS PRE-EXTRACTED CHUNK FOR COMPRESSION (AVOIDS DUPLICATE EXTRACTION IN SERVICE LAYER)
+    memory_trigger_threshold: Optional[int] = 30
+    memory_raw_buffer: Optional[int] = 10
+    memory_summary_cap_tokens: Optional[int] = 800
 
 async def stream_chat_response(req: ChatRequest):
     provider_name = (req.provider or "").strip()
@@ -106,13 +109,18 @@ async def stream_chat_response(req: ChatRequest):
         
         # Check if separate memory fallback configuration exists in the environment settings (.env config fields)
         if not memory_provider_name or not memory_api_key_value or not memory_model_name:
-            if str(config.get("use_separate_memory_provider", "")).lower() == "true" or config.get("memory_provider"):
+            env_use_separate = config.get("USE_SEPARATE_MEMORY_PROVIDER") or config.get("use_separate_memory_provider", "")
+            env_provider = config.get("MEMORY_PROVIDER") or config.get("memory_provider", "")
+            env_api_key = config.get("MEMORY_API_KEY") or config.get("memory_api_key", "")
+            env_model = config.get("MEMORY_MODEL") or config.get("memory_model", "")
+
+            if str(env_use_separate).lower() == "true" or env_provider:
                 if not memory_provider_name:
-                    memory_provider_name = config.get("memory_provider", "")
+                    memory_provider_name = env_provider
                 if not memory_api_key_value:
-                    memory_api_key_value = config.get("memory_api_key", "")
+                    memory_api_key_value = env_api_key
                 if not memory_model_name:
-                    memory_model_name = config.get("memory_model", "")
+                    memory_model_name = env_model
 
         # Fallback to the main chatting provider and model if separate memory credentials are missing or disabled
         if not memory_provider_name or not memory_api_key_value or not memory_model_name:

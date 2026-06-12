@@ -54,6 +54,10 @@ class CompressRequest(BaseModel):
     rolling_summary: str = ""
     summary_history: List[str] = []
     compression_epoch: int = 0
+    raw_buffer: Optional[int] = 10
+    memory_provider: Optional[str] = ""
+    memory_model: Optional[str] = ""
+    memory_api_key: Optional[str] = ""
 
 
 class CompressResponse(BaseModel):
@@ -216,20 +220,81 @@ async def save_memory_config(payload: MemoryConfigRequest):
 #         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/api/compress", response_model=CompressResponse)
+@router.post("/compress", response_model=CompressResponse)
 async def compress_endpoint(req: CompressRequest):
-    chunk, raw_buffer = get_chunk_for_compression(req.messages, R=10)
+    # 1. Dynamically carve out the target uncompressed window chunk
+    chunk, raw_buffer = get_chunk_for_compression(req.messages, R=req.raw_buffer)
     if not chunk:
         return CompressResponse(
             new_summary=req.rolling_summary,
             truncated_count=0,
             grounding_applied=False
         )
-    return CompressResponse(
-        new_summary=req.rolling_summary,
-        truncated_count=len(chunk),
-        grounding_applied=False
-    )
+
+    # 2. Pull configuration fallbacks exactly like chat.py
+    config = get_saved_config()
+    
+    memory_provider_name = (req.memory_provider or "").strip()
+    memory_api_key_value = (req.memory_api_key or "").strip()
+    memory_model_name = (req.memory_model or "").strip()
+    
+    if not memory_provider_name or not memory_api_key_value or not memory_model_name:
+        env_use_separate = config.get("USE_SEPARATE_MEMORY_PROVIDER") or config.get("use_separate_memory_provider", "")
+        env_provider = config.get("MEMORY_PROVIDER") or config.get("memory_provider", "")
+        env_api_key = config.get("MEMORY_API_KEY") or config.get("memory_api_key", "")
+        env_model = config.get("MEMORY_MODEL") or config.get("memory_model", "")
+
+        if str(env_use_separate).lower() == "true" or env_provider:
+            if not memory_provider_name:
+                memory_provider_name = env_provider
+            if not memory_api_key_value:
+                memory_api_key_value = env_api_key
+            if not memory_model_name:
+                memory_model_name = env_model
+
+    # Base fallback to primary chat LLM configurations if memory fields are totally empty
+    if not memory_provider_name or not memory_api_key_value or not memory_model_name:
+        memory_provider_name = config.get("provider", "") or config.get("LLM_PROVIDER", "")
+        memory_api_key_value = config.get("api_key", "") or config.get("LLM_API_KEY", "")
+        memory_model_name = config.get("model_name", "") or config.get("LLM_MODEL_NAME", "")
+        
+    if not memory_provider_name or not memory_api_key_value or not memory_model_name:
+        raise HTTPException(status_code=400, detail="LLM configuration parameters are missing.")
+
+    # 3. Instantiate the isolated provider worker
+    provider_factory_key = "gemini" if memory_provider_name.lower() == "google-gemini" else memory_provider_name
+    memory_provider_instance = ProviderFactory.create(provider_factory_key, memory_api_key_value)
+
+    try:
+        # 4. Asynchronously compress the chunk text payload
+        new_summary = await compress_chunk(
+            chunk_messages=chunk,
+            existing_summary=req.rolling_summary,
+            provider_instance=memory_provider_instance,
+            model_name=memory_model_name,
+        )
+
+        # 5. Evaluate and execute grounding pass intervals to anchor contexts
+        grounding_applied = False
+        next_epoch = req.compression_epoch + 1
+        if next_epoch > 0 and next_epoch % 5 == 0:
+            new_summary = await grounding_pass(
+                summary_history=req.summary_history,
+                current_summary=new_summary,
+                provider_instance=memory_provider_instance,
+                model_name=memory_model_name,
+            )
+            grounding_applied = True
+
+        return CompressResponse(
+            new_summary=new_summary,
+            truncated_count=len(chunk),
+            grounding_applied=grounding_applied
+        )
+
+    except Exception as e:
+        print(f"[api/compress] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Compression process failed: {str(e)}")
 
 
 # @router.get("/monitor-control/status", response_model=MonitorStatusResponse)

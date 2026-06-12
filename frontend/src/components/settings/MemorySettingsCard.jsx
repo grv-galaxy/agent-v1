@@ -456,71 +456,78 @@ export default function MemorySettingsCard({
   }
 
   useEffect(() => {
-    if (configFetchedRef.current) {
-      setIsLoadingConfig(false);
-      return undefined;
-    }
-    configFetchedRef.current = true;
-    let ignore = false;
+  let isMounted = true;
 
-    async function loadConfig() {
-      setIsLoadingConfig(true);
-      try {
-        const response = await fetch(CONFIG_ENDPOINT);
-        const data = await response.json();
-        if (!response.ok || data?.success === false) {
-          throw new Error(data?.message || 'Unable to load memory configuration.');
-        }
+  async function loadConfig() {
+    setIsLoadingConfig(true);
+    try {
+      const response = await fetch(CONFIG_ENDPOINT);
+      const data = await response.json();
 
-        if (!ignore) {
-          const nextMemoryEnabled = data.memory_enabled !== false;
-          const nextUseSeparate = Boolean(data.use_separate_memory_provider);
-          const nextProvider = data.memory_provider || '';
-          const nextModel = data.memory_model || '';
-          const nextHasApiKey = Boolean(data.has_memory_api_key);
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.message || 'Unable to load memory configuration.');
+      }
 
-          memoryInitialValues.current = {
-            memoryEnabled: nextMemoryEnabled,
-            useSeparate: nextUseSeparate,
-            provider: nextProvider,
-            model: nextModel,
-            apiKeyExists: nextHasApiKey,
-          };
-          setMemoryEnabled(nextMemoryEnabled);
-          setUseSeparate(nextUseSeparate);
-          setMemoryProvider(nextProvider);
-          setMemoryModel(nextModel);
-          setMemoryApiKeyExists(nextHasApiKey);
-          setMemoryApiKey('');
-          setMemoryApiKeyLocked(true);
-          setEditedFields({
-            memoryEnabled: false,
-            useSeparate: false,
-            provider: false,
-            model: false,
-            apiKey: false,
-          });
-        }
-      } catch (error) {
-        if (!ignore) {
-          setSaveStatus({
-            type: 'error',
-            message: error?.message || 'Unable to load memory configuration.',
-          });
-        }
-      } finally {
-        if (!ignore) {
-          setIsLoadingConfig(false);
-        }
+      // 🧠 Only update state if the component is still actively mounted
+      if (isMounted) {
+        const nextMemoryEnabled = data.memory_enabled !== false;
+        const nextUseSeparate = Boolean(data.use_separate_memory_provider);
+        const nextProvider = data.memory_provider || '';
+        const nextModel = data.memory_model || '';
+        const nextHasApiKey = Boolean(data.has_memory_api_key);
+
+        // 1. Sync baseline reference tracker
+        memoryInitialValues.current = {
+          memoryEnabled: nextMemoryEnabled,
+          useSeparate: nextUseSeparate,
+          provider: nextProvider,
+          model: nextModel,
+          apiKeyExists: nextHasApiKey,
+        };
+
+        // 2. Hydrate local UI states safely
+        setMemoryEnabled(nextMemoryEnabled);
+        setUseSeparate(nextUseSeparate);
+        setMemoryProvider(nextProvider);
+        setMemoryModel(nextModel);
+        setMemoryApiKeyExists(nextHasApiKey);
+        setMemoryApiKey('');
+        setMemoryApiKeyLocked(true);
+        
+        // 3. Reset form modification matrix
+        setEditedFields({
+          memoryEnabled: false,
+          useSeparate: false,
+          provider: false,
+          model: false,
+          apiKey: false,
+        });
+      }
+    } catch (error) {
+      if (isMounted) {
+        setSaveStatus({
+          type: 'error',
+          message: error?.message || 'Unable to load memory configuration.',
+        });
+      }
+    } finally {
+      if (isMounted) {
+        setIsLoadingConfig(false);
       }
     }
+  }
 
-    loadConfig();
+  // Kick off initialization routines
+  loadConfig();
+  if (typeof loadStats === 'function') {
     loadStats();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  }
+
+  // Clean up token to perfectly handle React 18 StrictMode double-invocations
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   useEffect(() => {
     if (testStatus?.type !== 'success') {

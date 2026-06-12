@@ -10,7 +10,7 @@ from providers.provider_factory import ProviderFactory
 from services.compression_service import compress_chunk, grounding_pass
 from utils.memory_utils import should_compress, get_chunk_for_compression
 from .auth import get_saved_config
-# from backend.memory.working_memory import get_memory_stats
+from services.memory_stats import dispatch_stats_event, get_all_stats, set_telemetry_state # 🧠 Added telemetry hooks# from backend.memory.working_memory import get_memory_stats
 # from backend.monitor.backend.monitored_backend_runner import (
 #     start_monitor_services,
 #     stop_monitor_services,
@@ -64,6 +64,10 @@ class CompressResponse(BaseModel):
     new_summary: str
     truncated_count: int
     grounding_applied: bool
+
+
+class ToggleTelemetryRequest(BaseModel): # 🧠 Added payload framework for setting master switch
+    telemetry_enabled: bool
 
 
 # class MemoryStatsResponse(BaseModel):
@@ -193,11 +197,23 @@ async def save_memory_config(payload: MemoryConfigRequest):
     return {"success": True, "message": "Memory config saved successfully."}
 
 
-# @router.get("/memory-stats", response_model=MemoryStatsResponse)
-# async def memory_stats():
-#     """Return in-RAM memory stats."""
-#     stats = get_memory_stats()
-#     return MemoryStatsResponse(**stats)
+@router.get("/memory-stats")
+async def memory_stats():
+    """
+    🧠 DEMAND 1 & 4: Instantly returns the state matrix dictionary snapshot.
+    Runs at O(1) reads without querying databases or files.
+    """
+    return get_all_stats()
+
+
+@router.post("/memory-stats/toggle")
+async def toggle_telemetry(payload: ToggleTelemetryRequest):
+    """
+    🧠 DEMAND 1: Master entry gateway config toggle endpoint.
+    Flips the status flag on the backend instantly.
+    """
+    set_telemetry_state(payload.telemetry_enabled)
+    return {"success": True, "telemetry_enabled": payload.telemetry_enabled}
 
 
 # @router.post("/verify-provider")
@@ -286,6 +302,20 @@ async def compress_endpoint(req: CompressRequest):
             )
             grounding_applied = True
 
+        # 🧠 Telemetry Hook: Calculate tokens before and after compression bounds
+        tokens_before = count_tokens(chunk)
+        tokens_after = count_tokens([{"role": "user", "content": new_summary}])
+        tokens_saved = max(0, tokens_before - tokens_after)
+
+        # 🧠 Telemetry Hook: Dispatch data frames directly to background worker queue
+        dispatch_stats_event("compression", {
+            "tokens_before": tokens_before,
+            "tokens_after": tokens_after,
+            "tokens_saved": tokens_saved,
+            "epoch": next_epoch,
+            "grounding_applied": grounding_applied
+        })
+
         return CompressResponse(
             new_summary=new_summary,
             truncated_count=len(chunk),
@@ -295,7 +325,6 @@ async def compress_endpoint(req: CompressRequest):
     except Exception as e:
         print(f"[api/compress] Error: {e}")
         raise HTTPException(status_code=500, detail=f"Compression process failed: {str(e)}")
-
 
 # @router.get("/monitor-control/status", response_model=MonitorStatusResponse)
 # async def monitor_status():

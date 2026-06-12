@@ -1,5 +1,6 @@
 import json
 import asyncio
+import time  # 🧠 Added for microsecond latency tracking
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from providers.provider_factory import ProviderFactory
 from .auth import get_saved_config
 from utils.memory_utils import build_payload_within_budget, should_compress, get_chunk_for_compression, cap_summary_by_tokens, count_tokens, is_oversized_message
 from services.compression_service import compress_chunk, grounding_pass
+from services.memory_stats import dispatch_stats_event  # 🧠 Import our zero-friction dispatcher
 
 router = APIRouter()
 
@@ -35,30 +37,33 @@ class ChatRequest(BaseModel):
     memory_summary_cap_tokens: Optional[int] = 800
 
 async def stream_chat_response(req: ChatRequest):
-    provider_name = (req.provider or "").strip()
-    api_key = (req.api_key or "").strip()
-    model_name = (req.model_name or "").strip()
+    # 🧠 Telemetry Hook: Increment active session counter instantly (O(1))
+    dispatch_stats_event("session_increment", {})
     
-    # Load fallback config from .env if needed
-    if not provider_name or not api_key or not model_name:
-        config = get_saved_config()
-        if not provider_name:
-            provider_name = config.get("provider", "")
-        if not api_key:
-            api_key = config.get("api_key", "")
-        if not model_name:
-            model_name = config.get("model_name", "")
-            
-    if not provider_name or not api_key or not model_name:
-        error_msg = "LLM settings are not configured. Please complete setup in LLM Config Card."
-        yield f"data: {json.dumps({'error': error_msg})}\n\n"
-        yield "data: [DONE]\n\n"
-        return
-
-    # Map google-gemini to gemini for registry compatibility
-    provider_factory_key = "gemini" if provider_name.lower() == "google-gemini" else provider_name
-
     try:
+        provider_name = (req.provider or "").strip()
+        api_key = (req.api_key or "").strip()
+        model_name = (req.model_name or "").strip()
+        
+        # Load fallback config from .env if needed
+        if not provider_name or not api_key or not model_name:
+            config = get_saved_config()
+            if not provider_name:
+                provider_name = config.get("provider", "")
+            if not api_key:
+                api_key = config.get("api_key", "")
+            if not model_name:
+                model_name = config.get("model_name", "")
+                
+        if not provider_name or not api_key or not model_name:
+            error_msg = "LLM settings are not configured. Please complete setup in LLM Config Card."
+            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        # Map google-gemini to gemini for registry compatibility
+        provider_factory_key = "gemini" if provider_name.lower() == "google-gemini" else provider_name
+
         # Convert Pydantic message structures into standard List[Dict[str, str]]
         raw_messages = [{"role": msg.role, "content": msg.content} for msg in req.messages]
 
@@ -98,7 +103,6 @@ async def stream_chat_response(req: ChatRequest):
         provider_instance = ProviderFactory.create(provider_factory_key, api_key)     
         #------------------------------------------------------------------------- 
 
-        
         # Load backend configuration for memory env/fallback variables
         config = get_saved_config()
         
@@ -151,19 +155,39 @@ async def stream_chat_response(req: ChatRequest):
             )
 
         # --- Task A: Stream main response to user ---
+        start_time = time.time()  # 🧠 Benchmark metric point start
+        completion_text_accum = ""
+        
         async for chunk in provider_instance.generate_stream(model_name, messages_list):
             text = chunk.get("text", "")
             if text:
+                completion_text_accum += text
                 yield f"data: {json.dumps({'chunk': text})}\n\n"
                 
+        # 🧠 Telemetry Hook: Calculate latency & total token footprints post-stream
+        latency_ms = (time.time() - start_time) * 1000.0
+        prompt_tokens = sum(count_tokens(m["content"]) for m in messages_list)
+        completion_tokens = count_tokens(completion_text_accum)
+        
+        dispatch_stats_event("chat_message", {
+            "latency_ms": latency_ms,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens
+        })
+
         # --- After streaming: check if compression finished ---
         if compression_task is not None:
             try:
+                # Calculate current base window token size before modification updates
+                tokens_before = sum(count_tokens(m["content"]) for m in compression_chunk)
+                
                 new_summary = await asyncio.wait_for(compression_task, timeout=30.0)
                 
                 # Every 5th compression: run grounding pass to fix drift
                 next_epoch = (req.compression_epoch or 0) + 1
+                grounding_applied = False
                 if next_epoch > 0 and next_epoch % 5 == 0:
+                    grounding_applied = True
                     summary_history = getattr(req, 'summary_history', []) or []
                     new_summary = await grounding_pass(
                         summary_history=summary_history,
@@ -171,6 +195,19 @@ async def stream_chat_response(req: ChatRequest):
                         provider_instance=memory_provider_instance,
                         model_name=memory_model_name,
                     )
+                
+                # Calculate metrics for compression efficiencies
+                tokens_after = count_tokens(new_summary)
+                tokens_saved = max(0, tokens_before - tokens_after)
+                
+                # 🧠 Telemetry Hook: Dispatch structural metrics data frame to event processing queue
+                dispatch_stats_event("compression", {
+                    "tokens_before": tokens_before,
+                    "tokens_after": tokens_after,
+                    "tokens_saved": tokens_saved,
+                    "epoch": next_epoch,
+                    "grounding_applied": grounding_applied
+                })
                 
                 control_frame = {
                     "control": "memory_compact",
@@ -186,13 +223,16 @@ async def stream_chat_response(req: ChatRequest):
                 print(f"[compression] Failed safely: {e}")
                 
             yield "data: [DONE]\n\n"
+            
     except Exception as e:
         error_msg = str(e)
-        # Log the real error for debugging
         print(f"[chat] Stream error: {type(e).__name__}: {error_msg}")
-        # Send error to frontend as SSE event
         yield f"data: {json.dumps({'error': error_msg})}\n\n"
         yield "data: [DONE]\n\n"
+        
+    finally:
+        # 🧠 Telemetry Hook: Safely decrement the active connection array counters
+        dispatch_stats_event("session_decrement", {})
 
 
 @router.post("/chat")

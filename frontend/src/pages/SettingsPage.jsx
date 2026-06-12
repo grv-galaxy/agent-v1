@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import LLMConfigCard from '../components/settings/LLMConfigCard.jsx';
 import MemorySettingsCard from '../components/settings/MemorySettingsCard.jsx';
 import SettingsNav from '../components/settings/SettingsNav.jsx';
+import Configuration from '../components/settings/Configuration.jsx';
 
 const PREFERENCES = [
   {
@@ -203,6 +204,8 @@ export default function SettingsPage({
               configFetchGuardRef={memoryConfigFetchedRef}
               statsFetchGuardRef={memoryStatsFetchedRef}
             />
+          ) : activeSection === 'configuration' ? (
+            <Configuration /> // 🧠 Intercepts 'configuration' view to load your slider panel
           ) : (
             <PlaceholderSection title={activeTitle} />
           )}

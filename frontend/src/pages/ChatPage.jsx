@@ -87,6 +87,28 @@ function isNetworkError(error) {
   );
 }
 
+// ADD THIS NEW FUNCTION:
+function getActiveMemoryConfig() {
+  const defaults = { preset: 'balanced', t: 30, r: 10, cap: 800, interval: 5 };
+  const saved = sessionStorage.getItem('agent_memory_config');
+  
+  if (!saved) return defaults;
+  
+  try {
+    const { preset, config } = JSON.parse(saved);
+    if (preset === 'custom' && config) return { preset, ...config };
+    
+    const PRESETS = {
+      precise:  { t: 40, r: 15, cap: 1200, interval: 3 },
+      balanced: { t: 30, r: 10, cap: 800,  interval: 5 },
+      turbo:    { t: 15, r: 4,  cap: 500,  interval: 7 }
+    };
+    return { preset, ...(PRESETS[preset] || PRESETS.balanced) };
+  } catch (e) {
+    return defaults;
+  }
+}
+
 function Icon({ name, className = 'h-4 w-4' }) {
   const common = {
     fill: 'none',
@@ -920,9 +942,10 @@ export default function ChatPage({
     streamAbortControllerRef.current = streamController;
 
     // Set compression rules and build rolling limits dynamically
-    const TRIGGER_THRESHOLD = 30;
-    const RAW_BUFFER_SIZE = 10;
-    const ROLLING_LIMIT = 20;
+    const memoryParams = getActiveMemoryConfig();
+    const TRIGGER_THRESHOLD = memoryParams.t;
+    const RAW_BUFFER_SIZE = memoryParams.r;
+    const ROLLING_LIMIT = memoryParams.t;
 
     const shouldCompress = nextContextMessages.length >= TRIGGER_THRESHOLD;
     const compressionChunk = shouldCompress
@@ -946,6 +969,11 @@ export default function ChatPage({
             api_key: provider.apiKey,
             model_name: provider.modelName,
             ...getMemoryPayloadFields(), // Maintain memory configuration values
+            memory_preset: memoryParams.preset,
+            memory_trigger_threshold: memoryParams.t,
+            memory_raw_buffer: memoryParams.r,
+            memory_summary_cap_tokens: memoryParams.cap,
+            memory_grounding_interval: memoryParams.interval,
             rolling_summary: activeSession.rolling_summary || "", // <-- NEW: snake_case only
             compression_epoch: activeSession.compression_epoch || 0,
             summary_history: activeSession.summary_history || [],

@@ -35,6 +35,8 @@ class ChatRequest(BaseModel):
     memory_trigger_threshold: Optional[int] = 30
     memory_raw_buffer: Optional[int] = 10
     memory_summary_cap_tokens: Optional[int] = 800
+    memory_preset: Optional[str] = "balanced"    #<-- Dynamic Preset UI Settings Fields
+    memory_grounding_interval: Optional[int] = 5  #<-- Dynamic Preset UI Settings Fields
 
 async def stream_chat_response(req: ChatRequest):
     # 🧠 Telemetry Hook: Increment active session counter instantly (O(1))
@@ -68,7 +70,10 @@ async def stream_chat_response(req: ChatRequest):
         raw_messages = [{"role": msg.role, "content": msg.content} for msg in req.messages]
 
         # 🧠 Defensive recovery: clean/cap incoming summary before injection
-        safe_rolling_summary = cap_summary_by_tokens(req.rolling_summary or "")
+        safe_rolling_summary = cap_summary_by_tokens(
+            req.rolling_summary or "", 
+            max_summary_tokens=req.memory_summary_cap_tokens
+        )
 
         # Inject rolling summary if present
         if safe_rolling_summary:
@@ -186,7 +191,11 @@ async def stream_chat_response(req: ChatRequest):
                 # Every 5th compression: run grounding pass to fix drift
                 next_epoch = (req.compression_epoch or 0) + 1
                 grounding_applied = False
-                if next_epoch > 0 and next_epoch % 5 == 0:
+
+                # Safe-guarding extraction to prevent division by zero or negative integers
+                interval = req.memory_grounding_interval if (req.memory_grounding_interval and req.memory_grounding_interval > 0) else 5
+
+                if next_epoch > 0 and next_epoch % interval == 0:
                     grounding_applied = True
                     summary_history = getattr(req, 'summary_history', []) or []
                     new_summary = await grounding_pass(

@@ -1,7 +1,9 @@
+# backend/services/compression_service.py
 import asyncio
 import json
 from utils.memory_utils import count_tokens
 from utils.memory_utils import cap_summary_by_tokens
+from utils.fact_storage import trigger_on_demand_save
 
 GROUNDING_PROMPT = """
 You are given 2-3 versions of a conversation summary (oldest to newest). Produce ONE canonical summary that:
@@ -45,6 +47,8 @@ async def compress_chunk(
     existing_summary: str,
     provider_instance,
     model_name: str,
+    session_id: str,
+    compression_epoch: int,
     max_summary_tokens: int = 800,
 ) -> str:
     """
@@ -69,7 +73,6 @@ async def compress_chunk(
     
     # Stream the compression response from the provider
     async for chunk in provider_instance.generate_stream(model_name, messages):
-        # FIX: Safely parse chunk dictionary to get the text fragment string
         if isinstance(chunk, dict):
             text_fragment = chunk.get("text", "")
         else:
@@ -95,15 +98,26 @@ async def compress_chunk(
             token_count += line_cost
             
         new_summary = "\n".join(trimmed)
+
+    # ─── HOOK A: SAVE THE COMPRESSION PASS LINE ────────────────────
+    trigger_on_demand_save(
+        session_id=session_id,
+        epoch=compression_epoch,
+        event_type="compression_pass",
+        rolling_summary=new_summary
+    )
+    
     return cap_summary_by_tokens(new_summary, max_summary_tokens)
 
         
-   
 async def grounding_pass(
     summary_history: list[str],
     current_summary: str,
     provider_instance,
     model_name: str,
+    session_id: str,
+    compression_epoch: int,
+    max_summary_tokens: int = 800,  # <-- Added uniformity default argument
 ) -> str:
     all_versions = [s for s in summary_history if s] + [current_summary]
     if len(all_versions) < 2:
@@ -124,5 +138,16 @@ async def grounding_pass(
             
         if text_fragment:
             result_tokens.append(text_fragment)
+
+    # ─── OPTIMIZATION: Moved outside loop to run exactly ONCE ───
+    grounded_summary = "".join(result_tokens).strip()
+
+    # ─── HOOK B: SAVE THE GROUNDING RECONCILIATION LINE ────────────
+    trigger_on_demand_save(
+        session_id=session_id,
+        epoch=compression_epoch,
+        event_type="grounding_pass",
+        rolling_summary=grounded_summary
+    )
             
-    return cap_summary_by_tokens("".join(result_tokens).strip())
+    return cap_summary_by_tokens(grounded_summary, max_summary_tokens)

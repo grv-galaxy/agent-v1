@@ -7,6 +7,7 @@ import ChatPage from './pages/ChatPage.jsx';
 // 1. IMPORT YOUR DASHBOARD COMPONENT HERE
 // Replace 'TelemetryDashboard' and the path below with the actual filename of your telemetry view
 import TelemetryDashboard from './pages/data_sheet.jsx'; 
+import MemoryMonitorPage from './pages/MemoryMonitorPage.jsx';
 
 const CONFIG_ENDPOINT = `${
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
@@ -52,9 +53,16 @@ function getInitialOnlineState() {
 
 export default function App() {
   // Check if user specifically requested the telemetry route on this execution branch
-  const isTelemetryRoute = window.location.pathname === '/telemetry-dashboard';
+  // ... inside your App component:
+const urlParams = new URLSearchParams(window.location.search);
+const isTelemetryRoute = window.location.pathname === '/telemetry-dashboard' || urlParams.get('dashboard') === 'true';
+const isPruningRoute = urlParams.get('dashboard') === '/pruning-telemetry' || urlParams.get('dashboard') === 'pruning'; // Add this line
 
-  const [appState, setAppState] = useState(() => isTelemetryRoute ? 'telemetry' : 'splash');
+  const [appState, setAppState] = useState(() => {
+    if (isPruningRoute) return 'pruning';
+    if (isTelemetryRoute) return 'telemetry';
+    return 'splash';
+  });
   const [splashState, setSplashState] = useState(() =>
     getInitialOnlineState() ? 'connecting' : 'offline',
   );
@@ -87,7 +95,14 @@ export default function App() {
 
   const runStartupCheck = useCallback(() => {
     // 2. BYPASS LOGIC: Do not run startup or API check if we are just loading the telemetry metrics
-    if (window.location.pathname === '/telemetry-dashboard') {
+    const currentParams = new URLSearchParams(window.location.search);
+
+    if (
+      window.location.pathname === '/telemetry-dashboard' || 
+      currentParams.get('dashboard') === 'true' || 
+      currentParams.get('dashboard') === 'pruning' ||
+      currentParams.get('dashboard') === '/pruning-telemetry'
+    ) {
       return undefined;
     }
 
@@ -210,7 +225,9 @@ export default function App() {
   // 3. ROUTE COMPILING SWITCH
   let appContent;
 
-  if (appState === 'telemetry') {
+  if (appState === 'pruning') {
+    appContent = <MemoryMonitorPage />; // FIXED: Handled the pruning state cleanly here
+  } else if (appState === 'telemetry') {
     appContent = (
       <div className="min-h-screen bg-[#111111] p-6">
         <TelemetryDashboard />

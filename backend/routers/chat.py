@@ -75,28 +75,32 @@ async def stream_chat_response(req: ChatRequest):
             max_summary_tokens=req.memory_summary_cap_tokens
         )
 
-        # Inject rolling summary if present
-        if safe_rolling_summary:
-            summary_message = {
-                "role": "user",
-                "content": f"[CONVERSATION CONTEXT - earlier messages summarized]\n{safe_rolling_summary}"
-            } 
-            insert_at = 1 if raw_messages and raw_messages[0]["role"] == "system" else 0
-            raw_messages.insert(insert_at, summary_message)
-            
         # Extract the system prompt to anchor it as a non-negotiable token cost
         system_prompt = next((m["content"] for m in raw_messages if m["role"] == "system"), "")
-        
+
         # Pre-flight token budget check (Offloaded asynchronously to a background thread pool)
         budget_result = await build_payload_within_budget(
             system_prompt=system_prompt,
             rolling_summary=safe_rolling_summary, # 🧠 Using capped summary variation
             messages=[m for m in raw_messages if m["role"] != "system"],
         )
-        
+
         # Extract the safely truncated message history
         messages_list = budget_result["messages"]
-        
+
+        # Inject rolling summary if present
+        if safe_rolling_summary:
+            summary_message = {
+                "role": "user",
+                "content": f"[CONVERSATION CONTEXT - earlier messages summarized]\n{safe_rolling_summary}"
+            } 
+            messages_list.insert(0, summary_message)
+
+
+            # insert_at = 1 if raw_messages and raw_messages[0]["role"] == "system" else 0
+            # raw_messages.insert(insert_at, summary_message)
+            
+            
         # Re-insert system prompt back at index 0 if it was stripped for budget calculations
         if system_prompt:
             messages_list.insert(0, {"role": "system", "content": system_prompt})
@@ -147,15 +151,20 @@ async def stream_chat_response(req: ChatRequest):
             for m in (req.compression_chunk or [])
         ]
 
+        next_epoch = (req.compression_epoch or 0) + 1
         compression_task = None
 
         if req.use_memory and req.should_compress and compression_chunk:
+            # ─── FIXED: Threading missing session orchestration arguments through ───
             compression_task = asyncio.create_task(
                 compress_chunk(
                     chunk_messages=compression_chunk,
                     existing_summary=req.rolling_summary or "",
                     provider_instance=memory_provider_instance,
                     model_name=memory_model_name,
+                    session_id=req.session_id or "default",
+                    compression_epoch=next_epoch,
+                    max_summary_tokens=req.memory_summary_cap_tokens or 800,
                 )
             )
 
@@ -203,6 +212,9 @@ async def stream_chat_response(req: ChatRequest):
                         current_summary=new_summary,
                         provider_instance=memory_provider_instance,
                         model_name=memory_model_name,
+                        session_id=req.session_id or "default",
+                        compression_epoch=next_epoch,
+                        max_summary_tokens=req.memory_summary_cap_tokens or 800,
                     )
                 
                 # Calculate metrics for compression efficiencies
@@ -231,7 +243,7 @@ async def stream_chat_response(req: ChatRequest):
             except Exception as e:
                 print(f"[compression] Failed safely: {e}")
                 
-            yield "data: [DONE]\n\n"
+        yield "data: [DONE]\n\n"
             
     except Exception as e:
         error_msg = str(e)

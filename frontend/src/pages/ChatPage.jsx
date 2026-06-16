@@ -544,6 +544,7 @@ export default function ChatPage({
   const streamAbortControllerRef = useRef(null);
   const toolThinkingTimeoutRef = useRef(null);
   const toolTimeoutAbortRef = useRef(false);
+  const telemetryEnabledRef = useRef(false);
 
   const activeSession =
     sessions.find((session) => session.id === activeSessionId) ||
@@ -706,6 +707,24 @@ export default function ChatPage({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [openMenuId]);
+
+  useEffect(() => {
+    // Initialize telemetry enabled state from sessionStorage once on mount
+    telemetryEnabledRef.current =
+      sessionStorage.getItem('agent.compressionMonitoringEnabled') === 'true';
+  }, []);
+
+  useEffect(() => {
+    // Listen for telemetry toggle changes
+    const handleTelemetryChange = (event) => {
+      telemetryEnabledRef.current = !!event.detail;
+    };
+
+    window.addEventListener('compression-monitoring-changed', handleTelemetryChange);
+    return () => {
+      window.removeEventListener('compression-monitoring-changed', handleTelemetryChange);
+    };
+  }, []);
 
   function getFallbackSession(currentSessions) {
     return currentSessions.find((session) => !session.archived) || null;
@@ -959,39 +978,41 @@ export default function ChatPage({
     // ==========================================
     // LIVE TELEMETRY TELEPORT (SESSION STORAGE)
     // ==========================================
-    try {
-      // Intercept and mirror the exact literal data structure being sent to the LLM backend server
-      const exactRequestPayload = {
-        provider: provider.provider,
-        api_key: provider.apiKey,
-        model_name: provider.modelName,
-        ...getMemoryPayloadFields(), // Dynamic injection parameters (e.g. preset shifts)
-        memory_preset: memoryParams.preset,
-        memory_trigger_threshold: memoryParams.t,
-        memory_raw_buffer: memoryParams.r,
-        memory_summary_cap_tokens: memoryParams.cap,
-        memory_grounding_interval: memoryParams.interval,
-        rolling_summary: activeSession.rolling_summary || "",
-        compression_epoch: activeSession.compression_epoch || 0,
-        summary_history: activeSession.summary_history || [],
-        messages: rawBufferMessages.map(({ role, content: messageContent }) => ({
-          role,
-          content: messageContent,
-        })),
-        should_compress: shouldCompress,
-        compression_chunk: compressionChunk.map(({ role, content: messageContent }) => ({
-          role,
-          content: messageContent,
-        })),
-        session_id: activeMemorySessionId
-      };
+    if (telemetryEnabledRef.current) {
+      try {
+        // Intercept and mirror the exact literal data structure being sent to the LLM backend server
+        const exactRequestPayload = {
+          provider: provider.provider,
+          api_key: provider.apiKey,
+          model_name: provider.modelName,
+          ...getMemoryPayloadFields(), // Dynamic injection parameters (e.g. preset shifts)
+          memory_preset: memoryParams.preset,
+          memory_trigger_threshold: memoryParams.t,
+          memory_raw_buffer: memoryParams.r,
+          memory_summary_cap_tokens: memoryParams.cap,
+          memory_grounding_interval: memoryParams.interval,
+          rolling_summary: activeSession.rolling_summary || "",
+          compression_epoch: activeSession.compression_epoch || 0,
+          summary_history: activeSession.summary_history || [],
+          messages: rawBufferMessages.map(({ role, content: messageContent }) => ({
+            role,
+            content: messageContent,
+          })),
+          should_compress: shouldCompress,
+          compression_chunk: compressionChunk.map(({ role, content: messageContent }) => ({
+            role,
+            content: messageContent,
+          })),
+          session_id: activeMemorySessionId
+        };
 
-      // Push the identical data object directly to sessionStorage
-      sessionStorage.setItem('agent.live_payload_stream', JSON.stringify(exactRequestPayload));
-      // Fire real-time listener sync event alert
-      window.dispatchEvent(new Event('storage_update'));
-    } catch (e) {
-      console.error("Telemetry sync error:", e);
+        // Push the identical data object directly to localStorage
+        localStorage.setItem('agent.live_payload_stream', JSON.stringify(exactRequestPayload));
+        // Fire real-time listener sync event alert
+        window.dispatchEvent(new Event('storage_update'));
+      } catch (e) {
+        console.error("Telemetry sync error:", e);
+      }
     }
     // ==========================================
 

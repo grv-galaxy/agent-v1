@@ -63,20 +63,29 @@ const MemoryMonitorLauncher = () => {
   // 1. Initialize state by pulling from the exact same key as your hook
   const [isTracking, setIsTracking] = useState(() => {
     try {
-      const savedState = localStorage.getItem('agent.memoryMonitoringEnabled');
+      const savedState = sessionStorage.getItem('agent.compressionMonitoringEnabled');
       return savedState === 'true'; // Strictly matches the string 'true'
     } catch (e) {
       return false;
     }
   });
 
-  // 2. Keep the local state and localStorage in perfect sync when toggled
+  // 2. Keep the local state and sessionStorage in perfect sync when toggled
   const handleToggleChange = (nextState) => {
     try {
-      localStorage.setItem('agent.memoryMonitoringEnabled', String(nextState));
+      sessionStorage.setItem(
+        'agent.compressionMonitoringEnabled', 
+        String(nextState)
+      );
+      window.dispatchEvent(
+        new CustomEvent('compression-monitoring-changed', {
+          detail: nextState,
+        })
+      );
     } catch (e) {
       console.error(e);
     }
+
     setIsTracking(nextState);
   };
 

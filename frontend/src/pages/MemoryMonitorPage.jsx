@@ -49,7 +49,45 @@ const MemoryMonitorPage = () => {
     const loadPayload = () => {
       const storedPayload = localStorage.getItem('agent.live_payload_stream');
       const newPayload = parsePayload(storedPayload);
-      setPayload(newPayload);
+
+      // Also read an on-session summary from localStorage (key: 'summary')
+      // Parse it as an array/object/string and merge all entries into
+      // `summary_history` so each item is rendered individually.
+      const rawSessionSummary = localStorage.getItem('summary');
+      let sessionEntries = [];
+      if (rawSessionSummary) {
+        try {
+          const parsed = JSON.parse(rawSessionSummary);
+          if (Array.isArray(parsed)) {
+            sessionEntries = parsed.map(entry => typeof entry === 'string' ? entry : JSON.stringify(entry, null, 2));
+          } else if (parsed && typeof parsed === 'object') {
+            const keys = Object.keys(parsed);
+            const allNumeric = keys.length > 0 && keys.every(k => !isNaN(Number(k)));
+            if (allNumeric) {
+              sessionEntries = keys
+                .sort((a, b) => Number(a) - Number(b))
+                .map(k => (typeof parsed[k] === 'string' ? parsed[k] : JSON.stringify(parsed[k], null, 2)));
+            } else {
+              sessionEntries = [JSON.stringify(parsed, null, 2)];
+            }
+          } else if (typeof parsed === 'string') {
+            sessionEntries = [parsed];
+          }
+        } catch (e) {
+          // Not JSON — try splitting by newline and strip numeric prefixes like `0: `
+          sessionEntries = rawSessionSummary
+            .split(/\r?\n/)
+            .map(s => s.trim())
+            .filter(Boolean)
+            .map(s => s.replace(/^\s*\d+\s*:\s*/, ''));
+        }
+      }
+
+      // Use only localStorage `summary` entries for the Summary History UI.
+      // If none present, expose an empty array so the UI shows the empty state.
+      const mergedHistory = sessionEntries.length ? sessionEntries : [];
+
+      setPayload({ ...newPayload, summary_history: mergedHistory });
     };
 
     // Initial load

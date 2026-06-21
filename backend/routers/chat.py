@@ -195,7 +195,8 @@ async def stream_chat_response(req: ChatRequest):
                 # Calculate current base window token size before modification updates
                 tokens_before = sum(count_tokens(m["content"]) for m in compression_chunk)
                 
-                new_summary = await asyncio.wait_for(compression_task, timeout=30.0)
+                compression_summary = await asyncio.wait_for(compression_task, timeout=30.0)
+                new_summary = compression_summary  # Store compression summary to pass to chat
                 
                 # Every 5th compression: run grounding pass to fix drift
                 next_epoch = (req.compression_epoch or 0) + 1
@@ -207,16 +208,17 @@ async def stream_chat_response(req: ChatRequest):
                 if next_epoch > 0 and next_epoch % interval == 0:
                     grounding_applied = True
                     summary_history = getattr(req, 'summary_history', []) or []
-                    new_summary = await grounding_pass(
+                    grounded_summary = await grounding_pass(
                         summary_history=summary_history,
-                        current_summary=new_summary,
+                        current_summary=compression_summary,
                         provider_instance=memory_provider_instance,
                         model_name=memory_model_name,
                         session_id=req.session_id or "default",
                         compression_epoch=next_epoch,
                         max_summary_tokens=req.memory_summary_cap_tokens or 800,
                     )
-                
+                    new_summary = grounded_summary or compression_summary
+
                 # Calculate metrics for compression efficiencies
                 tokens_after = count_tokens(new_summary)
                 tokens_saved = max(0, tokens_before - tokens_after)
@@ -233,6 +235,7 @@ async def stream_chat_response(req: ChatRequest):
                 control_frame = {
                     "control": "memory_compact",
                     "rolling_summary": new_summary,
+                    "compression_summary": compression_summary,
                     "truncated_count": len(compression_chunk),
                     "compression_epoch": next_epoch,
                 }

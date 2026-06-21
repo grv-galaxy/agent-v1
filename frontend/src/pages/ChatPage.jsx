@@ -109,6 +109,28 @@ function getActiveMemoryConfig() {
   }
 }
 
+function appendSummaryToBucket(summary) {
+  if (!summary || typeof window === 'undefined' || !window.localStorage) {
+    return;
+  }
+
+  try {
+    const key = 'summary';
+    const current = localStorage.getItem(key);
+    const bucket = current ? JSON.parse(current) : [];
+
+    if (!Array.isArray(bucket)) {
+      localStorage.setItem(key, JSON.stringify([summary]));
+      return;
+    }
+
+    bucket.push(summary);
+    localStorage.setItem(key, JSON.stringify(bucket));
+  } catch (e) {
+    console.error('Failed to update summary bucket localStorage:', e);
+  }
+}
+
 function Icon({ name, className = 'h-4 w-4' }) {
   const common = {
     fill: 'none',
@@ -1018,6 +1040,19 @@ export default function ChatPage({
 
     void (async () => {
       try {
+        const groundingInterval = (memoryParams && memoryParams.interval && memoryParams.interval > 0) ? memoryParams.interval : 5;
+        const summary_history = activeSession.summary_history || [];
+
+        console.log(
+          "Grounding Interval:",
+          groundingInterval
+        );
+
+        console.log(
+          "Summary History Length:",
+          summary_history.length
+        );
+
         const response = await fetch(CHAT_ENDPOINT, {
           method: 'POST',
           signal: streamController.signal,
@@ -1122,10 +1157,28 @@ export default function ChatPage({
                     currentSessions.map((session) => {
                       if (session.id !== activeSession.id) return session;
 
-                      const newHistory = [
-                        ...(session.summary_history || []).slice(-2),
-                        session.rolling_summary,
-                      ].filter(Boolean);
+                      const memoryParams = getActiveMemoryConfig();
+                      const groundingInterval = (memoryParams && memoryParams.interval && memoryParams.interval > 0) ? memoryParams.interval : 5;
+                      const isGroundingEpoch =
+                        parsed.compression_epoch && groundingInterval > 0
+                          ? parsed.compression_epoch % groundingInterval === 0
+                          : false;
+
+                      const currentCompressionSummary = parsed.compression_summary || parsed.rolling_summary;
+
+                      appendSummaryToBucket(currentCompressionSummary);
+                      if (isGroundingEpoch && parsed.rolling_summary && parsed.rolling_summary !== currentCompressionSummary) {
+                        appendSummaryToBucket(parsed.rolling_summary);
+                      }
+
+                      const newHistory = isGroundingEpoch
+                        ? [currentCompressionSummary].filter(Boolean)
+                        : [
+                            ...(session.summary_history || []),
+                            currentCompressionSummary,
+                          ]
+                            .filter(Boolean)
+                            .slice(-Math.max(groundingInterval - 1, 0));
 
                       return {
                         ...session,

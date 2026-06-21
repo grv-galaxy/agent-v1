@@ -6,158 +6,161 @@ from utils.memory_utils import count_tokens
 from utils.memory_utils import cap_summary_by_tokens
 from utils.fact_storage import trigger_on_demand_save
 
-def extract_json_from_output(output: str, marker: str = "FACTS_JSON:") -> dict:
+def extract_json_from_output(output: str, marker: str = None) -> dict:
     """
-    Extracts JSON from LLM output after a marker (e.g., "FACTS_JSON:").
-    Returns `None` if no valid JSON is found.
-    Handles edge cases: empty JSON, trailing text, malformed JSON.
+    Robustly extracts a JSON object from the LLM output string.
+    If a marker is provided, it attempts to find JSON within or after that marker block.
+    Handles strict structural raw JSON objects as well as markdown code wrapping.
     """
-    if not output or marker not in output:
+    if not output:
         return None
 
-    # Extract everything after the marker
-    json_start = output.find(marker) + len(marker)
-    json_str = output[json_start:].strip()
+    content = output
+    if marker and marker in output:
+        marker_pos = output.find(marker)
+        content = output[marker_pos + len(marker):]
 
-    # Remove trailing non-JSON text (e.g., "---", "SUMMARY:", etc.)
-    for trailing in ["---", "SUMMARY:", "HOLISTIC_SUMMARY:", "CANONICAL_FACTS_JSON:"]:
-        if trailing in json_str:
-            json_str = json_str.split(trailing)[0].strip()
+    # Find the outer bounds of the JSON object
+    first_brace = content.find("{")
+    last_brace = content.rfind("}")
+    
+    if first_brace == -1 or last_brace == -1 or last_brace <= first_brace:
+        print(f"[Warning] Failed to find valid JSON brace limits. Marker used: {marker}")
+        return None
 
-    # Clean up common JSON issues
-    json_str = json_str.rstrip(",")
-    json_str = re.sub(r'\s+', ' ', json_str).strip()  # Normalize whitespace
-
-    # Try to parse JSON
+    json_str = content[first_brace:last_brace + 1].strip()
     try:
         return json.loads(json_str)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[Warning] JSON parsing failed: {e}. Raw content length: {len(json_str)}")
         return None
 
 FIRST_EPOCH_PROMPT = """
-    You are a conversation analyzer. Given the **first raw conversation chunk**, produce:
+You are a Conversation Analyzer and State Reduction Engine. 
+Given the **first raw conversation chunk**, analyze it and return a single, unified, structurally valid JSON object matching the exact template format below.
 
-    1. A **detailed, coherent summary** of what happened (length should match the complexity of the conversation).
-    2. A **JSON object** extracting ALL facts, decisions, preferences, and entities.
+### Rules:
+- The `summary` key must contain a detailed, coherent narrative summary matching the complexity of the conversation without artificially cutting details.
+- Do not add any conversational markdown headers (like SUMMARY: or FACTS_JSON:) or markdown text outside the valid JSON boundaries.
 
-    ### Rules:
-    - The summary must **capture all critical information** from the chunk. Do NOT artificially limit its length.
-    - The JSON must include:
-    - `facts`: Array of objects with `fact` (string), `source` ("user" or "assistant"), `type` ("explicit", "question", or "request").
-    - `decisions`: Array of strings (e.g., ["User decided to explore London"]).
-    - `preferences`: Array of strings (e.g., ["User prefers concise answers"]).
-    - `entities`: Object with `Files/Paths`, `Variables/Functions`, `Errors/Bugs` (all arrays or ["NONE"]).
-
-    ### Output Format:
-    SUMMARY:
-    [Your detailed summary here]
-
-    ---
-    FACTS_JSON:
-    {{
+### Expected JSON Output Template:
+{{
+  "summary": "[Your detailed narrative summary tracking critical context and user intent here]",
+  "facts_json": {{
     "facts": [
-        {{"fact": "User asked about London", "source": "user", "type": "question"}},
-        {{"fact": "Assistant listed capabilities", "source": "assistant", "type": "explicit"}}
+      {{"fact": "User asked about project specifications", "source": "user", "type": "question"}},
+      {{"fact": "Assistant provided architecture guidelines", "source": "assistant", "type": "explicit"}}
     ],
-    "decisions": ["User decided to explore London"],
-    "preferences": ["User prefers concise answers"],
+    "decisions": [],
+    "preferences": [],
     "entities": {{
-        "Files/Paths": ["NONE"],
-        "Variables/Functions": ["NONE"],
-        "Errors/Bugs": ["NONE"]
+      "Files/Paths": ["NONE"],
+      "Variables/Functions": ["NONE"],
+      "Errors/Bugs": ["NONE"]
     }}
-    }}
-    ---
-    CONVERSATION CHUNK:
-    {chunk_text}
-"""
+  }}
+}}
 
-GROUNDING_PROMPT = """
-    You are a grounding expert. Given **ALL previous compression summaries**, produce:
-
-    1. A **holistic, narrative summary** of the entire conversation so far (describe the flow, key events, and current state).
-    2. A **canonical JSON** that:
-    - Merges ALL facts from all epochs.
-    - **Resolves ALL contradictions** (keep the most recent version of any fact).
-    - Tracks **repetitions** (count + epochs where each fact appears).
-    - Includes **source** and **resolution** for contradictions.
-
-    ### Rules:
-    - The holistic summary should **tell the story** of the conversation (e.g., "The user started by asking about X, then explored Y, and finally decided Z").
-    - The canonical JSON should be the **single source of truth** for all facts.
-
-    ### Output Format:
-    HOLISTIC_SUMMARY:
-    [Your narrative summary of the entire conversation here]
-
-    ---
-    CANONICAL_FACTS_JSON:
-    {{
-    "facts": [
-        {{
-        "fact": "Fact text",
-        "source": "user" | "assistant",
-        "type": "explicit" | "contradiction_resolved" | "updated",
-        "count": 2,
-        "epochs": [1, 3],
-        "resolution": "Final resolved value" | null
-        }}
-    ],
-    "decisions": ["Decision 1", "Decision 2"],
-    "preferences": ["Preference 1"],
-    "entities": {{
-        "Files/Paths": ["path1", "path2"],
-        "Variables/Functions": ["var1"],
-        "Errors/Bugs": ["error1"]
-    }},
-    "metadata": {{
-        "total_facts": 10,
-        "contradictions_resolved": 2,
-        "epochs_merged": [1, 2, 3]
-    }}
-    }}
-    ---
-    ALL PREVIOUS SUMMARIES (oldest to newest):
-    {all_summaries}
+---
+CONVERSATION CHUNK:
+{chunk_text}
 """
 
 ANCHORED_COMPRESSION_PROMPT = """
-    You are a memory manager. Your job is to **rewrite and improve** the existing summary by merging it with new information from the conversation chunk.
-    **Do NOT simply append the new chunk to the old summary.** Instead, create a **new, coherent summary** that:
-    - Retains ALL critical information from the old summary.
-    - Incorporates ALL new information from the chunk.
-    - **Resolves any contradictions** between the old summary and new chunk (prioritize the new chunk if there is a conflict).
-    - **Removes redundancies** (do not repeat the same fact twice).
+You are a Memory Consolidation Engine.
+Your primary objective is to PRESERVE memory, not compress it.
+The EXISTING SUMMARY is the authoritative memory state accumulated from previous epochs.
+The NEW CONVERSATION CHUNK contains newly observed information.
+Your task is to UPDATE the existing memory state while minimizing information loss.
 
-    ### Rules:
-    - If a fact in the new chunk **contradicts** the old summary, **resolve it in the new summary** and mark it in the JSON as `"type": "contradiction_resolved"`.
-    - If a fact is **updated**, mark it in the JSON as `"type": "updated"`.
-    - The JSON must only include **new or updated facts** from this chunk.
+──────────────────────────────────────
+CORE PRINCIPLES & RULES
+──────────────────────────────────────
+- Treat the EXISTING SUMMARY as a persistent memory document. DO NOT rewrite it from scratch.
+- Merged details should make the narrative text richer, more complete, and more detailed over time.
+- Never remove an existing fact unless the new chunk explicitly contradicts or provides a newer version of that exact fact.
+- Only additions and structural modifications belong in the `facts_json` registry block. Do not repeat old facts.
 
-    ### Output Format:
-    SUMMARY:
-    [Your new, rewritten, and improved summary here]
+──────────────────────────────────────
+FINAL MANDATORY FORMATTING RULE
+──────────────────────────────────────
+- Your entire response must be a single, structurally valid JSON object matching the exact template below. 
+- Do not print "SUMMARY:" or "FACTS_JSON:" as plain text headers outside of the object. 
+- Do not wrap the JSON object inside markdown backticks (like ```json).
 
-    ---
-    FACTS_JSON:
-    {{
+### Expected JSON Output Template:
+{{
+  "summary": "[Updated narrative summary document with preserved history and merged new information goes here]",
+  "facts_json": {{
     "new_facts": [
-        {{"fact": "New or updated fact text", "source": "user" | "assistant", "type": "explicit" | "contradiction_resolved" | "updated"}}
+      {{
+        "fact": "new fact text",
+        "source": "user",
+        "type": "explicit"
+      }}
     ],
-    "new_decisions": ["New decision"],
-    "new_preferences": ["New preference"],
+    "new_decisions": [],
+    "new_preferences": [],
     "new_entities": {{
-        "Files/Paths": ["new_path"],
-        "Variables/Functions": ["new_var"],
-        "Errors/Bugs": ["new_error"]
+      "Files/Paths": [],
+      "Variables/Functions": [],
+      "Errors/Bugs": []
     }}
-    }}
-    ---
-    EXISTING SUMMARY:
-    {existing_summary}
+  }}
+}}
 
-    NEW CONVERSATION CHUNK:
-    {chunk_text}
+---
+EXISTING SUMMARY:
+{existing_summary}
+
+NEW CONVERSATION CHUNK:
+{chunk_text}
+"""
+
+GROUNDING_PROMPT = """
+You are a Master Memory Reconciliation Anchor and Grounding Expert.
+Given **ALL previous compression summaries**, analyze the entire chronological ledger to perform an analytical cleanup pass.
+
+### Objectives:
+1. Build a holistic, narrative summary telling the master story timeline of how the conversation progressed.
+2. Formulate a single canonical fact registry. Remove contradictions, deduplicate values, and keep the latest verified state.
+
+### Final Output Requirements:
+- The entire response must be a single, raw, structurally valid JSON object matching the exact format template below.
+- Do not include conversational prefaces or text fields outside the JSON braces.
+
+### Expected JSON Output Template:
+{{
+  "holistic_summary": "[Your master timeline abstract. Where it started -> how it evolved -> current core state objective]",
+  "canonical_facts_json": {{
+    "facts": [
+      {{
+        "fact": "Fact value text description",
+        "source": "user",
+        "type": "explicit",
+        "count": 1,
+        "epochs": [1],
+        "resolution": null
+      }}
+    ],
+    "decisions": [],
+    "preferences": [],
+    "entities": {{
+      "Files/Paths": [],
+      "Variables/Functions": [],
+      "Errors/Bugs": []
+    }},
+    "metadata": {{
+      "total_facts": 0,
+      "contradictions_resolved": 0,
+      "epochs_merged": []
+    }}
+  }}
+}}
+
+---
+ALL PREVIOUS SUMMARIES (oldest to newest):
+{all_summaries}
 """
 
 async def compress_chunk(
@@ -170,8 +173,8 @@ async def compress_chunk(
     max_summary_tokens: int = None,
 ) -> str:
     """
-    - Epoch 1: Uses FIRST_EPOCH_PROMPT (raw chunks → new summary + JSON).
-    - Epoch 2+: Uses ANCHORED_COMPRESSION_PROMPT (rewrite old summary + new chunks → improved summary + JSON).
+    - Epoch 1: Uses FIRST_EPOCH_PROMPT (raw chunks -> new summary + JSON).
+    - Epoch 2+: Uses ANCHORED_COMPRESSION_PROMPT (rewrite old summary + new chunks -> improved summary + JSON).
     - Parses and stores JSON facts separately.
     """
     chunk_text = "\n".join(
@@ -195,14 +198,25 @@ async def compress_chunk(
         if isinstance(chunk, dict):
             result_tokens.append(chunk.get("text", ""))
 
-    new_summary = "".join(result_tokens).strip()
+    raw_response = "".join(result_tokens).strip()
 
-    # --- Parse JSON facts (robustly) ---
-    facts = extract_json_from_output(new_summary, "FACTS_JSON:")
+    # --- Parse JSON payloads robustly out of the unified root schema ---
+    parsed_payload = extract_json_from_output(raw_response)
 
-    # --- Remove JSON from the summary text (keep it clean) ---
-    if facts is not None:
-        new_summary = new_summary.split("FACTS_JSON:")[0].strip()
+    if parsed_payload and isinstance(parsed_payload, dict):
+        new_summary = parsed_payload.get("summary", "").strip()
+        facts = parsed_payload.get("facts_json", {})
+    else:
+        # Emergency healing fallback if structure failed
+        print("[compression_service] Prompt broken schema layout. Initiating emergency flat text partition fallback.")
+        new_summary = raw_response
+        facts = None
+        if "SUMMARY:" in new_summary:
+            new_summary = new_summary.split("SUMMARY:")[-1]
+        if "FACTS_JSON:" in new_summary:
+            parts = new_summary.split("FACTS_JSON:")
+            new_summary = parts[0].strip()
+            facts = extract_json_from_output(parts[1])
 
     # --- Save compression pass with separate facts ---
     trigger_on_demand_save(
@@ -210,7 +224,7 @@ async def compress_chunk(
         epoch=compression_epoch,
         event_type="compression_pass",
         rolling_summary=new_summary,  # Text summary only
-        facts=facts,                   # Structured JSON facts
+        facts=facts,                    # Structured JSON facts
     )
 
     return cap_summary_by_tokens(new_summary, max_summary_tokens)
@@ -246,14 +260,25 @@ async def grounding_pass(
         if isinstance(chunk, dict):
             result_tokens.append(chunk.get("text", ""))
 
-    grounded_summary = "".join(result_tokens).strip()
+    raw_response = "".join(result_tokens).strip()
 
-    # --- Parse JSON facts (robustly) ---
-    facts = extract_json_from_output(grounded_summary, "CANONICAL_FACTS_JSON:")
+    # --- Parse Master grounding payload object structures ---
+    parsed_payload = extract_json_from_output(raw_response)
 
-    # --- Remove JSON from the summary text (keep it clean) ---
-    if facts is not None:
-        grounded_summary = grounded_summary.split("CANONICAL_FACTS_JSON:")[0].strip()
+    if parsed_payload and isinstance(parsed_payload, dict):
+        grounded_summary = parsed_payload.get("holistic_summary", "").strip()
+        facts = parsed_payload.get("canonical_facts_json", {})
+    else:
+        # Flat text partition emergency fallback
+        print("[grounding_service] Grounding fallback processing triggered.")
+        grounded_summary = raw_response
+        facts = None
+        if "HOLISTIC_SUMMARY:" in grounded_summary:
+            grounded_summary = grounded_summary.split("HOLISTIC_SUMMARY:")[-1]
+        if "CANONICAL_FACTS_JSON:" in grounded_summary:
+            parts = grounded_summary.split("CANONICAL_FACTS_JSON:")
+            grounded_summary = parts[0].strip()
+            facts = extract_json_from_output(parts[1])
 
     # --- Save grounding pass with separate facts ---
     trigger_on_demand_save(

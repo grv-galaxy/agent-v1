@@ -118,42 +118,72 @@ NEW CONVERSATION CHUNK:
 """
 
 GROUNDING_PROMPT = """
-You are a Master Memory Reconciliation Anchor and Grounding Expert.
-Given **ALL previous compression summaries**, analyze the entire chronological ledger to perform an analytical cleanup pass.
+You are a **Memory Conflict Reconciliation & Super-Compression Engine**.
+Your **primary objective** is to analyze **ALL PREVIOUS COMPRESSION SUMMARIES** and produce a **SINGLE, COHESIVE, CONFLICT-FREE SUPER-COMPRESSION** that:
+- **Preserves all non-contradicted information** (never discard or shrink context).
+- **Actively resolves conflicts** by prioritizing the most recent, verified, or logically consistent version of facts.
+- **Clarifies ambiguities** and merges redundant or overlapping details into a **more complete and accurate** narrative.
+- **Extends all prior compressions** into a **master, unified summary** that is **richer, clearer, and more detailed** than any individual summary.
 
-### Objectives:
-1. Build a holistic, narrative summary telling the master story timeline of how the conversation progressed.
-2. Formulate a single canonical fact registry. Remove contradictions, deduplicate values, and keep the latest verified state.
+---
 
-### Final Output Requirements:
-- The entire response must be a single, raw, structurally valid JSON object matching the exact format template below.
-- Do not include conversational prefaces or text fields outside the JSON braces.
+### **CORE PRINCIPLES & RULES**
+---
+1. **Treat ALL PREVIOUS SUMMARIES as the authoritative ledger.** DO NOT rewrite from scratch or omit details.
+2. **Resolve conflicts explicitly:**
+   - If facts contradict, **keep the most recent or verified version** and note the resolution.
+   - If information is ambiguous, **clarify it** in the super-compression.
+3. **Merge redundancies** into a single, polished statement.
+4. **Never remove a fact** unless it is **explicitly contradicted** by a newer, verified fact.
+5. **Output must be a SUPER-COMPRESSION:** A **more complete, conflict-free, and extended** version of all prior compressions.
 
-### Expected JSON Output Template:
+---
+
+### **FINAL MANDATORY FORMATTING RULE**
+---
+- Your **entire response** must be a **single, structurally valid JSON object** matching the template below.
+- **Do not** include any text outside the JSON braces.
+- **Do not** wrap the JSON in markdown backticks or add headers like "SUMMARY:".
+
+### **Expected JSON Output Template:**
 {{
-  "holistic_summary": "[Your master timeline abstract. Where it started -> how it evolved -> current core state objective]",
-  "canonical_facts_json": {{
+  "super_compression": "[Your reconciled, conflict-free master narrative that extends all previous compressions, preserves all non-contradicted information, and resolves all ambiguities or contradictions]",
+  "reconciled_facts_json": {{
     "facts": [
       {{
-        "fact": "Fact value text description",
-        "source": "user",
-        "type": "explicit",
-        "count": 1,
-        "epochs": [1],
-        "resolution": null
+        "fact": "Reconciled fact (merged/clarified from all summaries)",
+        "source": "user|assistant",
+        "type": "explicit|implied",
+        "epochs": [1, 2, 3],  // Indices of summaries where this fact appeared
+        "resolution": "kept|updated|contradiction_resolved|clarified"
       }}
     ],
-    "decisions": [],
-    "preferences": [],
+    "decisions": [
+      {{
+        "decision": "Reconciled decision text",
+        "source": "user|assistant",
+        "epochs": [1, 2],
+        "resolution": "kept|overridden"
+      }}
+    ],
+    "preferences": [
+      {{
+        "preference": "Reconciled preference text",
+        "source": "user|assistant",
+        "epochs": [1, 3],
+        "resolution": "kept|updated"
+      }}
+    ],
     "entities": {{
-      "Files/Paths": [],
-      "Variables/Functions": [],
-      "Errors/Bugs": []
+      "Files/Paths": ["file1.txt", "file2.txt"],
+      "Variables/Functions": ["varX", "funcY"],
+      "Errors/Bugs": ["errorA", "bugB"]
     }},
     "metadata": {{
-      "total_facts": 0,
-      "contradictions_resolved": 0,
-      "epochs_merged": []
+      "total_facts": 10,
+      "contradictions_resolved": 2,
+      "ambiguities_clarified": 3,
+      "epochs_merged": [1, 2, 3, 4]  // All summary epochs processed
     }}
   }}
 }}
@@ -266,17 +296,17 @@ async def grounding_pass(
     parsed_payload = extract_json_from_output(raw_response)
 
     if parsed_payload and isinstance(parsed_payload, dict):
-        grounded_summary = parsed_payload.get("holistic_summary", "").strip()
-        facts = parsed_payload.get("canonical_facts_json", {})
+        grounded_summary = parsed_payload.get("super_compression", "").strip()
+        facts = parsed_payload.get("reconciled_facts_json", {})
     else:
         # Flat text partition emergency fallback
         print("[grounding_service] Grounding fallback processing triggered.")
         grounded_summary = raw_response
         facts = None
-        if "HOLISTIC_SUMMARY:" in grounded_summary:
-            grounded_summary = grounded_summary.split("HOLISTIC_SUMMARY:")[-1]
-        if "CANONICAL_FACTS_JSON:" in grounded_summary:
-            parts = grounded_summary.split("CANONICAL_FACTS_JSON:")
+        if "SUPER_COMPRESSION:" in grounded_summary:
+            grounded_summary = grounded_summary.split("SUPER_COMPRESSION:")[-1]
+        if "RECONCILED_FACTS_JSON:" in grounded_summary:
+            parts = grounded_summary.split("RECONCILED_FACTS_JSON:")
             grounded_summary = parts[0].strip()
             facts = extract_json_from_output(parts[1])
 

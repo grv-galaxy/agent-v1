@@ -124,6 +124,11 @@ function appendSummaryToBucket(summary) {
       return;
     }
 
+    // Skip if summary already exists
+    if (bucket.includes(summary)) {
+      return;
+    }
+
     bucket.push(summary);
     localStorage.setItem(key, JSON.stringify(bucket));
   } catch (e) {

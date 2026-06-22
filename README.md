@@ -224,9 +224,6 @@ It is not a product demo. It is a professional engineering tool.
 
 ---
 
-## License
-
-MIT License. See `LICENSE` for full terms.
 
 ---
 

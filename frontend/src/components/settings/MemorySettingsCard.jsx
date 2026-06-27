@@ -12,8 +12,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 const CONFIG_ENDPOINT = `${API_BASE_URL}/api/config`;
 const MEMORY_CONFIG_ENDPOINT = `${API_BASE_URL}/api/memory-config`;
 const MEMORY_STATS_ENDPOINT = `${API_BASE_URL}/api/memory-stats`;
-const MONITOR_UI_URL = 'http://127.0.0.1:5174';
-const MONITOR_CONTROL_ENDPOINT = `${API_BASE_URL}/api/monitor-control`;
+const MONITOR_UI_URL = 'http://127.0.0.1:5173/telemetry-dashboard';
 const MEMORY_MONITORING_STORAGE_KEY = 'agent.memoryMonitoringEnabled';
 const VERIFY_ENDPOINT =
   import.meta.env.VITE_VERIFY_PROVIDER_URL || `${API_BASE_URL}/api/verify-provider`;
@@ -101,261 +100,156 @@ function StatLine({ label, value }) {
 }
 
 function MemoryMonitorCard() {
-  function readStoredMonitoringEnabled() {
-    try {
-      return window.localStorage.getItem(MEMORY_MONITORING_STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
-  }
-
-  function storeMonitoringEnabled(nextValue) {
-    try {
-      window.localStorage.setItem(MEMORY_MONITORING_STORAGE_KEY, nextValue ? 'true' : 'false');
-    } catch {
-      // Ignore storage failures; the current UI state still updates for this session.
-    }
-  }
-
-  const [memoryMonitoringEnabled, setMemoryMonitoringEnabled] = useState(() => {
-    return readStoredMonitoringEnabled();
+  // 🧠 Hydrate instantly from sessionStorage so state is preserved during tab navigation
+  const [isEnabled, setIsEnabled] = useState(() => {
+    return sessionStorage.getItem(MEMORY_MONITORING_STORAGE_KEY) === 'true';
   });
-  const [monitorStatus, setMonitorStatus] = useState('idle');
-  const [controlStatus, setControlStatus] = useState(null);
-  const [statusMessage, setStatusMessage] = useState('');
-  const pollTimerRef = useRef(null);
-  const pollStartedAtRef = useRef(0);
+  const [liveStats, setLiveStats] = useState(null);
+  const statsPollRef = useRef(null);
 
-  function clearMonitorPoll() {
-    if (pollTimerRef.current) {
-      window.clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
+  // Helper: stop polling memory-stats
+  function clearStatsPoll() {
+    if (statsPollRef.current) {
+      window.clearInterval(statsPollRef.current);
     }
+    statsPollRef.current = null;
   }
 
-  async function fetchControlStatus() {
-    const response = await fetch(`${MONITOR_CONTROL_ENDPOINT}/status`);
-    const data = await response.json();
-    if (!response.ok || data?.success === false) {
-      throw new Error(data?.message || 'Unable to read monitor status.');
-    }
-    setControlStatus(data.status || null);
-    return data.status || null;
-  }
-
-  function updateStatusFromControl(nextStatus) {
-    if (nextStatus?.force_disabled) {
-      clearMonitorPoll();
-      setMemoryMonitoringEnabled(false);
-      storeMonitoringEnabled(false);
-      setMonitorStatus('force_disabled');
-      setStatusMessage('Memory monitoring is disabled by DISABLE_MEMORY_MONITOR=true');
-      return true;
-    }
-
-    if (nextStatus?.collector_running && nextStatus?.frontend_running) {
-      clearMonitorPoll();
-      setMonitorStatus('running');
-      setStatusMessage('');
-      return true;
-    }
-
-    return false;
-  }
-
-  function startStatusPolling() {
-    clearMonitorPoll();
-    pollStartedAtRef.current = Date.now();
-    pollTimerRef.current = window.setInterval(async () => {
-      try {
-        const nextStatus = await fetchControlStatus();
-        if (updateStatusFromControl(nextStatus)) {
-          return;
-        }
-        if (Date.now() - pollStartedAtRef.current > 20000) {
-          clearMonitorPoll();
-          setMonitorStatus('failed');
-          setStatusMessage('Monitor failed to start');
-        }
-      } catch (error) {
-        if (Date.now() - pollStartedAtRef.current > 20000) {
-          clearMonitorPoll();
-          setMonitorStatus('failed');
-          setStatusMessage(error?.message || 'Monitor failed to start');
-        }
-      }
-    }, 1500);
-  }
-
-  async function startMonitor({ persist = true } = {}) {
-    clearMonitorPoll();
-    setMemoryMonitoringEnabled(true);
-    if (persist) {
-      storeMonitoringEnabled(true);
-    }
-    setMonitorStatus('starting');
-    setStatusMessage('Starting monitor...');
-
-    try {
-      const response = await fetch(`${MONITOR_CONTROL_ENDPOINT}/start`, { method: 'POST' });
-      const data = await response.json();
-      const nextStatus = data.status || null;
-      setControlStatus(nextStatus);
-
-      if (!response.ok || data?.success === false) {
-        throw new Error(data?.message || 'Monitor failed to start');
-      }
-
-      if (!updateStatusFromControl(nextStatus)) {
-        startStatusPolling();
-      }
-    } catch (error) {
-      clearMonitorPoll();
-      setMonitorStatus('failed');
-      setStatusMessage(error?.message || 'Monitor failed to start');
-    }
-  }
-
-  async function stopMonitor() {
-    clearMonitorPoll();
-    setMonitorStatus('stopping');
-    setStatusMessage('Stopping monitor...');
-    storeMonitoringEnabled(false);
-
-    try {
-      const response = await fetch(`${MONITOR_CONTROL_ENDPOINT}/stop`, { method: 'POST' });
-      const data = await response.json();
-      setControlStatus(data.status || null);
-    } catch {
-      setControlStatus(null);
-    } finally {
-      setMemoryMonitoringEnabled(false);
-      setMonitorStatus('idle');
-      setStatusMessage('');
-    }
-  }
-
+  // 🧠 Replaces old config fetch: Syncs initial session token to backend router on mount
   useEffect(() => {
-    let ignore = false;
-
-    async function initializeMonitorControl() {
-      try {
-        const nextStatus = await fetchControlStatus();
-        if (ignore) {
-          return;
-        }
-        if (nextStatus?.force_disabled) {
-          updateStatusFromControl(nextStatus);
-          return;
-        }
-        if (readStoredMonitoringEnabled()) {
-          await startMonitor({ persist: false });
-        } else {
-          setMonitorStatus('idle');
-        }
-      } catch (error) {
-        if (!ignore && readStoredMonitoringEnabled()) {
-          setMemoryMonitoringEnabled(true);
-          setMonitorStatus('failed');
-          setStatusMessage(error?.message || 'Monitor failed to start');
-        }
-      }
+    if (isEnabled) {
+      fetch(`${API_BASE_URL}/api/memory-stats/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telemetry_enabled: true }),
+      }).catch((err) => console.error('Failed to sync telemetry session boot:', err));
     }
-
-    initializeMonitorControl();
-    return () => {
-      ignore = true;
-      clearMonitorPoll();
-    };
   }, []);
 
-  function handleMonitoringToggle(nextValue) {
-    if (controlStatus?.force_disabled) {
-      return;
+  // 2) Poll /api/memory-stats only when toggled ON
+  useEffect(() => {
+    clearStatsPoll();
+    setLiveStats(null);
+
+    if (!isEnabled) {
+      return undefined;
     }
-    if (nextValue) {
-      startMonitor();
-    } else {
-      stopMonitor();
+
+    let mounted = true;
+    async function fetchStats() {
+      try {
+        const res = await fetch(MEMORY_STATS_ENDPOINT);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!mounted) return;
+        const payload = data?.data || data;
+        setLiveStats({
+          active_sessions:
+            payload?.active_sessions ?? payload?.activeSessions ?? 0,
+          total_compressions:
+            payload?.total_compressions ?? payload?.totalCompressions ?? 0,
+          estimated_tokens_saved:
+            payload?.estimated_tokens_saved ?? payload?.estimatedTokensSaved ?? 0,
+        });
+      } catch (err) {
+        // keep UI resilient — show no crash
+        console.error('Telemetry stats fetch error', err);
+      }
+    }
+
+    fetchStats();
+    statsPollRef.current = window.setInterval(fetchStats, 5000);
+
+    return () => {
+      mounted = false;
+      clearStatsPoll();
+    };
+  }, [isEnabled]);
+
+  async function handleToggle(nextValue) {
+    // 1. Optimistically update local UI state
+    setIsEnabled(nextValue);
+    
+    // 2. Persist to session storage (auto-wipes when browser/tab session completely closes)
+    sessionStorage.setItem(MEMORY_MONITORING_STORAGE_KEY, String(nextValue));
+    
+    // 3. Dispatch payload using exact key match 'telemetry_enabled' to avoid 422 errors
+    try {
+      await fetch(`${API_BASE_URL}/api/memory-stats/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telemetry_enabled: nextValue }),
+      });
+    } catch (err) {
+      console.error('Failed to update telemetry state on backend:', err);
     }
   }
 
-  async function openMonitor() {
-    const opened = await window.desktop?.openExternal?.(MONITOR_UI_URL);
-    if (!opened) {
-      window.open(MONITOR_UI_URL, '_blank', 'noopener,noreferrer');
-    }
+  function openDashboard() {
+    if (!isEnabled) return;
+    // Use the dedicated monitor port variable defined at the top of the file
+    window.open(MONITOR_UI_URL, '_blank');
   }
 
-  const isRunning = Boolean(
-    memoryMonitoringEnabled &&
-      !controlStatus?.force_disabled &&
-      controlStatus?.collector_running &&
-      controlStatus?.frontend_running &&
-      monitorStatus === 'running',
-  );
-  const isBusy = monitorStatus === 'starting' || monitorStatus === 'stopping';
-  const showStatus = memoryMonitoringEnabled || controlStatus?.force_disabled || isBusy;
-  const statusLabel = controlStatus?.force_disabled
-    ? 'Memory monitoring disabled'
-    : monitorStatus === 'running'
-      ? 'Monitor running'
-      : monitorStatus === 'starting'
-        ? 'Starting monitor...'
-        : monitorStatus === 'stopping'
-          ? 'Stopping monitor...'
-          : monitorStatus === 'failed'
-            ? 'Monitor failed to start'
-            : '';
-  const statusColor = monitorStatus === 'running' ? 'text-[#22C55E]' : 'text-[#EF4444]';
-  const dotColor = monitorStatus === 'running' ? 'bg-[#22C55E]' : 'bg-[#EF4444]';
+  const statusLabel = isEnabled ? 'Active' : 'Telemetry Offline';
+  const statusDot = isEnabled ? 'bg-[#22C55E]' : 'bg-[#EF4444]';
 
   return (
     <div className="rounded-[10px] border border-[#1F1F1F] bg-[#111111] p-6">
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
         <div>
-          <p className="text-[15px] font-medium text-[#E8E8E8]">Memory Monitoring</p>
-          <p className="mt-1 max-w-[560px] text-[13px] leading-[1.5] text-[#666666]">
-            Enable live inspection of working memory events, compression output, prompt context,
-            facts, and metrics.
+          <p className="text-sm font-medium text-[#E8E8E8]">Live Context Telemetry</p>
+          <p className="mt-1 max-w-[560px] text-xs leading-[1.4] text-[#666666]">
+            Stream real-time updates of working memory events and metrics.
           </p>
         </div>
 
         <ToggleRow
-          checked={memoryMonitoringEnabled}
-          disabled={Boolean(controlStatus?.force_disabled) || isBusy}
-          label="Enable memory monitoring"
-          description="Starts monitor services and enables live memory event inspection"
-          onChange={handleMonitoringToggle}
+          checked={isEnabled}
+          disabled={false}
+          label="Enable real-time telemetry streaming"
+          description="Deploys diagnostic background handlers to capture context mutations instantly"
+          onChange={handleToggle}
         />
 
-        {showStatus && statusLabel ? (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <span
-              className={`flex items-center gap-2 text-[13px] ${statusColor}`}
-            >
-              <span className={`h-2 w-2 rounded-full ${dotColor}`} />
-              {statusLabel}
-            </span>
-            {statusMessage ? (
-              <span className="text-[13px] text-[#666666]">
-                {statusMessage}
-              </span>
-            ) : null}
+        <div className="mt-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className={`h-2 w-2 rounded-full ${statusDot}`} />
+            <span className="text-xs text-[#E8E8E8]">STATUS: {statusLabel}</span>
           </div>
-        ) : null}
+          <div className="text-xs text-[#666666]">Data Stream: {isEnabled ? 'Normal' : 'Offline'}</div>
+        </div>
 
-        {memoryMonitoringEnabled && !controlStatus?.force_disabled ? (
+        {/* Inline data snippet */}
+        {isEnabled ? (
+          <div className="mt-3 rounded-[8px] border border-[#1F1F1F] bg-[#0D0D0D] p-3 text-xs text-[#666666]">
+            <div className="mb-2 text-[13px] text-[#E8E8E8]">⚡ Live Metrics (From /api/memory-stats):</div>
+            <div className="flex flex-col gap-1">
+              <div>• Active sessions: {liveStats?.active_sessions ?? '—'}</div>
+              <div>• Total compressions: {liveStats?.total_compressions ?? '—'}</div>
+              <div>• Estimated tokens saved: {liveStats?.estimated_tokens_saved ?? '—'}</div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-[8px] border border-[#1F1F1F] bg-[#0D0D0D] p-3 text-xs text-[#666666]">
+            Telemetry Offline
+          </div>
+        )}
+
+        <div className="mt-3">
           <button
             type="button"
-            onClick={openMonitor}
-            disabled={!isRunning}
-            title={!isRunning ? 'Monitor is not running' : 'Open Memory Monitor'}
-            className="h-9 w-fit rounded-[8px] border border-[#2A2A2A] bg-[#1A1A1A] px-4 text-[13px] text-[#E8E8E8] transition duration-150 hover:border-[#6366F1] hover:text-[#C7D2FE] disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={openDashboard}
+            disabled={!isEnabled}
+            className={`px-4 py-2 text-xs font-medium rounded transition-all ${
+              isEnabled
+                ? 'bg-[#E8E8E8] text-black hover:bg-white cursor-pointer'
+                : 'bg-[#222222] text-[#555555] cursor-not-allowed'
+            }`}
           >
-            Open Memory Monitor
+            Launch Telemetry Dashboard ↗
           </button>
-        ) : null}
+        </div>
       </div>
     </div>
   );
@@ -456,71 +350,78 @@ export default function MemorySettingsCard({
   }
 
   useEffect(() => {
-    if (configFetchedRef.current) {
-      setIsLoadingConfig(false);
-      return undefined;
-    }
-    configFetchedRef.current = true;
-    let ignore = false;
+  let isMounted = true;
 
-    async function loadConfig() {
-      setIsLoadingConfig(true);
-      try {
-        const response = await fetch(CONFIG_ENDPOINT);
-        const data = await response.json();
-        if (!response.ok || data?.success === false) {
-          throw new Error(data?.message || 'Unable to load memory configuration.');
-        }
+  async function loadConfig() {
+    setIsLoadingConfig(true);
+    try {
+      const response = await fetch(CONFIG_ENDPOINT);
+      const data = await response.json();
 
-        if (!ignore) {
-          const nextMemoryEnabled = data.memory_enabled !== false;
-          const nextUseSeparate = Boolean(data.use_separate_memory_provider);
-          const nextProvider = data.memory_provider || '';
-          const nextModel = data.memory_model || '';
-          const nextHasApiKey = Boolean(data.has_memory_api_key);
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.message || 'Unable to load memory configuration.');
+      }
 
-          memoryInitialValues.current = {
-            memoryEnabled: nextMemoryEnabled,
-            useSeparate: nextUseSeparate,
-            provider: nextProvider,
-            model: nextModel,
-            apiKeyExists: nextHasApiKey,
-          };
-          setMemoryEnabled(nextMemoryEnabled);
-          setUseSeparate(nextUseSeparate);
-          setMemoryProvider(nextProvider);
-          setMemoryModel(nextModel);
-          setMemoryApiKeyExists(nextHasApiKey);
-          setMemoryApiKey('');
-          setMemoryApiKeyLocked(true);
-          setEditedFields({
-            memoryEnabled: false,
-            useSeparate: false,
-            provider: false,
-            model: false,
-            apiKey: false,
-          });
-        }
-      } catch (error) {
-        if (!ignore) {
-          setSaveStatus({
-            type: 'error',
-            message: error?.message || 'Unable to load memory configuration.',
-          });
-        }
-      } finally {
-        if (!ignore) {
-          setIsLoadingConfig(false);
-        }
+      // 🧠 Only update state if the component is still actively mounted
+      if (isMounted) {
+        const nextMemoryEnabled = data.memory_enabled !== false;
+        const nextUseSeparate = Boolean(data.use_separate_memory_provider);
+        const nextProvider = data.memory_provider || '';
+        const nextModel = data.memory_model || '';
+        const nextHasApiKey = Boolean(data.has_memory_api_key);
+
+        // 1. Sync baseline reference tracker
+        memoryInitialValues.current = {
+          memoryEnabled: nextMemoryEnabled,
+          useSeparate: nextUseSeparate,
+          provider: nextProvider,
+          model: nextModel,
+          apiKeyExists: nextHasApiKey,
+        };
+
+        // 2. Hydrate local UI states safely
+        setMemoryEnabled(nextMemoryEnabled);
+        setUseSeparate(nextUseSeparate);
+        setMemoryProvider(nextProvider);
+        setMemoryModel(nextModel);
+        setMemoryApiKeyExists(nextHasApiKey);
+        setMemoryApiKey('');
+        setMemoryApiKeyLocked(true);
+        
+        // 3. Reset form modification matrix
+        setEditedFields({
+          memoryEnabled: false,
+          useSeparate: false,
+          provider: false,
+          model: false,
+          apiKey: false,
+        });
+      }
+    } catch (error) {
+      if (isMounted) {
+        setSaveStatus({
+          type: 'error',
+          message: error?.message || 'Unable to load memory configuration.',
+        });
+      }
+    } finally {
+      if (isMounted) {
+        setIsLoadingConfig(false);
       }
     }
+  }
 
-    loadConfig();
+  // Kick off initialization routines
+  loadConfig();
+  if (typeof loadStats === 'function') {
     loadStats();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  }
+
+  // Clean up token to perfectly handle React 18 StrictMode double-invocations
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   useEffect(() => {
     if (testStatus?.type !== 'success') {
@@ -852,7 +753,7 @@ export default function MemorySettingsCard({
       </section>
 
       <section className="mt-10">
-        <SectionTitle>Memory Monitoring</SectionTitle>
+        <SectionTitle>Live Context Telemetry</SectionTitle>
         <MemoryMonitorCard />
       </section>
 

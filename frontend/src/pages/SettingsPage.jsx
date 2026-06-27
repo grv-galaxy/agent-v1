@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import LLMConfigCard from '../components/settings/LLMConfigCard.jsx';
 import MemorySettingsCard from '../components/settings/MemorySettingsCard.jsx';
 import SettingsNav from '../components/settings/SettingsNav.jsx';
+import Configuration from '../components/settings/Configuration.jsx';
+import MemoryMonitorPage from './MemoryMonitorPage.jsx';
+import MemoryMonitorLauncher from '../components/MemoryMonitorLauncher.jsx';
 
 const PREFERENCES = [
   {
@@ -142,7 +145,8 @@ export default function SettingsPage({
       browser: 'Browser',
       computer: 'Computer use',
       memory: 'Memory',
-    }[activeSection] || 'General';
+      'telemetry-console': 'Telemetry Console',  
+    }[activeSection] || 'General'; 
 
   return (
     <div className="flex h-full min-h-0 animate-[settingsSlideIn_200ms_ease-out] bg-[#0D0D0D]">
@@ -202,6 +206,14 @@ export default function SettingsPage({
               onMemoryConfigSaved={onMemoryConfigSaved}
               configFetchGuardRef={memoryConfigFetchedRef}
               statsFetchGuardRef={memoryStatsFetchedRef}
+            />
+          ) : activeSection === 'configuration' ? (
+            <Configuration /> // 🧠 Intercepts 'configuration' view to load your slider panel
+          ) : activeSection === 'telemetry-console' ? (
+            <MemoryMonitorLauncher 
+              // isTracking={isTracking}
+              // onToggle={setIsTracking}
+              // onLaunch={handleLaunch}
             />
           ) : (
             <PlaceholderSection title={activeTitle} />

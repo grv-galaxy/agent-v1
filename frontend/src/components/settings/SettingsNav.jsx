@@ -20,6 +20,10 @@ const TOOL_ITEMS = [
   { id: 'memory', label: 'Memory', icon: 'brain' },
 ];
 
+const DEVELOPER_ITEMS = [
+  { id: 'telemetry-console', label: 'Telemetry Console', icon: 'developer' },
+];
+
 function SettingsIcon({ name, className = 'h-4 w-4' }) {
   const common = {
     fill: 'none',
@@ -104,6 +108,13 @@ function SettingsIcon({ name, className = 'h-4 w-4' }) {
     ),
     brain: (
       <path d="M6 3.5a2.2 2.2 0 0 0-2.1 2.8 2.3 2.3 0 0 0 .2 4.3A2.2 2.2 0 0 0 8 12V4.2a2 2 0 0 0-2-0.7Zm4 0a2 2 0 0 0-2 0.7V12a2.2 2.2 0 0 0 3.9-1.4 2.3 2.3 0 0 0 .2-4.3A2.2 2.2 0 0 0 10 3.5Z" {...common} />
+    ),
+    developer: (
+      <>
+        <path d="M3.5 5.5 6 8l-2.5 2.5" {...common} />
+        <path d="M12.5 5.5 10 8l2.5 2.5" {...common} />
+        <path d="M8.8 4.5 7.2 11.5" {...common} />
+      </>
     ),
   };
 
@@ -202,6 +213,18 @@ export default function SettingsNav({ activeSection, onSectionChange, onBack }) 
             />
           ))}
         </div>
+
+        <SectionLabel>Developer</SectionLabel>
+          <div className="space-y-1">
+            {DEVELOPER_ITEMS.map((item) => (
+              <NavItem
+                key={item.id}
+                item={item}
+                active={activeSection === item.id}
+                onSelect={onSectionChange}
+              />
+            ))}
+          </div>
       </nav>
     </aside>
   );

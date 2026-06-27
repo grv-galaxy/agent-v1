@@ -4,6 +4,11 @@ import SplashScreen from './components/SplashScreen.jsx';
 import OnboardingPage from './pages/OnboardingPage.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 
+// 1. IMPORT YOUR DASHBOARD COMPONENT HERE
+// Replace 'TelemetryDashboard' and the path below with the actual filename of your telemetry view
+import TelemetryDashboard from './pages/data_sheet.jsx'; 
+import MemoryMonitorPage from './pages/MemoryMonitorPage.jsx';
+
 const CONFIG_ENDPOINT = `${
   import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 }/api/config`;
@@ -12,7 +17,7 @@ const PROVIDER_LABELS = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   gemini: 'Google Gemini',
-  'google-gemini': 'Google Gemini',
+  'google-gemini': 'Google Gemini', 
   mistral: 'Mistral',
   groq: 'Groq',
 };
@@ -47,7 +52,17 @@ function getInitialOnlineState() {
 }
 
 export default function App() {
-  const [appState, setAppState] = useState('splash');
+  // Check if user specifically requested the telemetry route on this execution branch
+  // ... inside your App component:
+const urlParams = new URLSearchParams(window.location.search);
+const isTelemetryRoute = window.location.pathname === '/telemetry-dashboard' || urlParams.get('dashboard') === 'true';
+const isPruningRoute = urlParams.get('dashboard') === '/pruning-telemetry' || urlParams.get('dashboard') === 'pruning'; // Add this line
+
+  const [appState, setAppState] = useState(() => {
+    if (isPruningRoute) return 'pruning';
+    if (isTelemetryRoute) return 'telemetry';
+    return 'splash';
+  });
   const [splashState, setSplashState] = useState(() =>
     getInitialOnlineState() ? 'connecting' : 'offline',
   );
@@ -79,6 +94,18 @@ export default function App() {
   }, []);
 
   const runStartupCheck = useCallback(() => {
+    // 2. BYPASS LOGIC: Do not run startup or API check if we are just loading the telemetry metrics
+    const currentParams = new URLSearchParams(window.location.search);
+
+    if (
+      window.location.pathname === '/telemetry-dashboard' || 
+      currentParams.get('dashboard') === 'true' || 
+      currentParams.get('dashboard') === 'pruning' ||
+      currentParams.get('dashboard') === '/pruning-telemetry'
+    ) {
+      return undefined;
+    }
+
     if (!getInitialOnlineState()) {
       setSplashState('offline');
       setAppState('splash');
@@ -195,22 +222,37 @@ export default function App() {
     setSplashState(isOnline ? 'backend-error' : 'offline');
   }
 
-  const appContent =
-    appState === 'splash' ? (
+  // 3. ROUTE COMPILING SWITCH
+  let appContent;
+
+  if (appState === 'pruning') {
+    appContent = <MemoryMonitorPage />; // FIXED: Handled the pruning state cleanly here
+  } else if (appState === 'telemetry') {
+    appContent = (
+      <div className="min-h-screen bg-[#111111] p-6">
+        <TelemetryDashboard />
+      </div>
+    );
+  } else if (appState === 'splash') {
+    appContent = (
       <SplashScreen
         state={splashState}
         exiting={isSplashExiting}
         onRetry={runStartupCheck}
         onEnterManually={showOnboarding}
       />
-    ) : appState === 'onboarding' || !verifiedProvider ? (
+    );
+  } else if (appState === 'onboarding' || !verifiedProvider) {
+    appContent = (
       <div className="app-route-fade min-h-screen">
         <OnboardingPage
           onVerified={handleVerified}
           onBackendConnectionLost={handleOnboardingBackendLost}
         />
       </div>
-    ) : (
+    );
+  } else {
+    appContent = (
       <div className="app-route-fade min-h-screen">
         <ChatPage
           provider={verifiedProvider}
@@ -220,6 +262,7 @@ export default function App() {
         />
       </div>
     );
+  }
 
   return (
     <>

@@ -222,6 +222,12 @@ It is not a product demo. It is a professional engineering tool.
 - RAG injection trace — show exactly which facts were retrieved and injected before each LLM call
 - Export to JSONL — dump any session's full telemetry to a file for offline analysis
 
+---
 
+## License
+
+MIT License. See `LICENSE` for full terms.
+
+---
 
 *SYNAPSE — because if you can't observe it, you can't engineer it.*

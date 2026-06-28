@@ -286,6 +286,7 @@ async def compress_endpoint(req: CompressRequest):
         new_summary = await compress_chunk(
             chunk_messages=chunk,
             existing_summary=req.rolling_summary,
+            session_id="default_session_id",
             provider_instance=memory_provider_instance,
             model_name=memory_model_name,
         )

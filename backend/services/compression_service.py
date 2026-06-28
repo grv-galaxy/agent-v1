@@ -1,9 +1,7 @@
-# backend/services/compression_service.py
 import asyncio
 import json
 import re
-from utils.memory_utils import count_tokens
-from utils.memory_utils import cap_summary_by_tokens
+from utils.memory_utils import count_tokens, cap_summary_by_tokens
 from utils.fact_storage import trigger_on_demand_save
 
 def extract_json_from_output(output: str, marker: str = None) -> dict:
@@ -12,7 +10,7 @@ def extract_json_from_output(output: str, marker: str = None) -> dict:
     If a marker is provided, it attempts to find JSON within or after that marker block.
     Handles strict structural raw JSON objects as well as markdown code wrapping.
     """
-    if not output:
+    if not output or not isinstance(output, str):
         return None
 
     content = output
@@ -23,174 +21,676 @@ def extract_json_from_output(output: str, marker: str = None) -> dict:
     # Find the outer bounds of the JSON object
     first_brace = content.find("{")
     last_brace = content.rfind("}")
-    
+
     if first_brace == -1 or last_brace == -1 or last_brace <= first_brace:
         print(f"[Warning] Failed to find valid JSON brace limits. Marker used: {marker}")
         return None
 
     json_str = content[first_brace:last_brace + 1].strip()
+
+    # Remove markdown code fences if present
+    json_str = re.sub(r'^```(?:json)?\s*', '', json_str)
+    json_str = re.sub(r'\s*```$', '', json_str)
+
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as e:
-        print(f"[Warning] JSON parsing failed: {e}. Raw content length: {len(json_str)}")
+        print(f"[Warning] JSON parsing failed: {e}. Raw content: {json_str[:200]}...")
         return None
 
+
+# --- Prompts (unchanged) ---
 FIRST_EPOCH_PROMPT = """
-You are a Conversation Analyzer and State Reduction Engine. 
-Given the **first raw conversation chunk**, analyze it and return a single, unified, structurally valid JSON object matching the exact template format below.
+You are an advanced Conversation Analyzer and Memory Extraction Engine.
 
-### Rules:
-- The `summary` key must contain a detailed, coherent narrative summary matching the complexity of the conversation without artificially cutting details.
-- Do not add any conversational markdown headers (like SUMMARY: or FACTS_JSON:) or markdown text outside the valid JSON boundaries.
+Your task is to analyze the FIRST raw conversation chunk and return a single, valid JSON object matching the exact schema below.
 
-### Expected JSON Output Template:
+The JSON you produce will become the foundation of an AI memory system.
+
+It has TWO purposes:
+
+1. `summary`
+   - A detailed rolling Short-Term Memory (STM) summary.
+   - This summary will be injected into future prompts together with new raw conversation messages.
+
+2. `facts_json`
+   - A structured Long-Term Memory (LTM) extraction.
+   - Only information with lasting value should be stored here.
+
+Return ONLY valid JSON.
+
+Do NOT output markdown.
+
+Do NOT wrap JSON inside code fences.
+
+Do NOT output any explanations.
+
+===============================================================================
+OBJECTIVE 1 — SUMMARY (SHORT-TERM MEMORY)
+===============================================================================
+
+The "summary" is NOT a transcript.
+
+The "summary" is NOT a chronological retelling of every message.
+
+Instead, it is a detailed state-preserving narrative whose purpose is to allow
+another assistant to continue the conversation naturally even if the original
+conversation history is no longer available.
+
+Assume the future assistant will receive ONLY:
+• this summary
+• future raw conversation messages
+
+The summary should preserve the CURRENT STATE of the conversation.
+
+Include, whenever applicable:
+• The user's primary goal(s)
+• Current discussion topic(s)
+• Overall context
+• Important decisions already made
+• Conclusions reached
+• Work already completed
+• Current progress
+• Active tasks
+• Open questions
+• Outstanding problems
+• Important assumptions
+• Constraints or requirements
+• Assistant commitments or promises
+• User preferences that are relevant to THIS conversation
+• Important relationships between different discussion topics
+• Any other information necessary for seamless continuation
+
+The summary should be sufficiently detailed to reconstruct the conversation
+state without needing previous messages.
+
+Do NOT include:
+- Greetings.
+- Conversational introductions that contain no meaningful information.
+- Pleasantries or social niceties.
+- Acknowledgements or conversational filler.
+- Repeated information.
+- Unnecessary chronological narration.
+- Information that has no future conversational value.
+
+Exception:
+If an introduction establishes important conversational context, persistent user information, or information necessary for continuing the conversation, preserve that information appropriately in the summary and, if it has lasting value, extract it into `facts_json`.
+
+Write naturally as one coherent narrative.
+
+Do NOT artificially shorten the summary.
+
+===============================================================================
+OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
+===============================================================================
+
+Extract ONLY information that has value beyond the current conversation.
+
+Long-term memory should contain information that is likely to remain useful
+across future conversations.
+
+Avoid storing temporary discussion context.
+
+Avoid storing short-lived conversational details.
+
+The categories are:
+
+------------------------------------------------------------------------------
+episodic_events
+------------------------------------------------------------------------------
+
+Store meaningful events or milestones.
+
+Examples:
+- User started building an AI memory system.
+- User planned a trip to Japan.
+- User completed a research project.
+- User began learning Spanish.
+
+Ignore trivial events.
+
+------------------------------------------------------------------------------
+factual_traits
+------------------------------------------------------------------------------
+
+Store stable or semi-stable information about the user.
+
+Examples:
+- User name is Gaurav.
+- User lives in Delhi.
+- User prefers dark mode.
+- User is vegetarian.
+- User primarily develops AI applications.
+
+Only extract facts explicitly stated or directly established.
+
+Never infer personal information.
+
+------------------------------------------------------------------------------
+semantic_concepts
+------------------------------------------------------------------------------
+
+Store important concepts that are central to the discussion.
+
+Examples:
+- Machine Learning
+- Budget Planning
+- Habit Tracking
+- Nutrition
+- Memory Compression
+- Vector Databases
+
+Do NOT extract every noun.
+
+Only include concepts that would improve future retrieval.
+
+------------------------------------------------------------------------------
+entities
+------------------------------------------------------------------------------
+
+Extract important named entities mentioned during the conversation.
+
+Populate the following categories whenever applicable:
+• Files/Paths
+• Variables/Functions
+• Classes
+• Libraries
+• Frameworks
+• Models
+• Packages
+• Repositories
+• Commands
+• Errors/Bugs
+• URLs
+• Applications
+• Products
+• Projects
+• Organizations
+• People
+• Places
+• Books
+• Movies
+
+If a category has no entities, return ["NONE"].
+
+===============================================================================
+EXTRACTION RULES
+===============================================================================
+
+Only extract information directly supported by the conversation.
+
+Never hallucinate.
+
+Never guess.
+
+Never infer unstated user preferences, traits or intentions.
+
+If uncertain, omit it.
+
+Prefer precision over quantity.
+
+Avoid duplicate memories.
+
+Normalize memories into concise canonical wording whenever possible.
+
+Bad:
+"The user seems interested in Python."
+
+Good:
+"Preferred programming language: Python"
+
+Only store information that is likely to improve future conversations.
+
+===============================================================================
+EXPECTED JSON OUTPUT
+===============================================================================
+
 {{
-  "summary": "[Your detailed narrative summary tracking critical context and user intent here]",
+  "summary": "...",
+
   "facts_json": {{
-    "facts": [
-      {{"fact": "User asked about project specifications", "source": "user", "type": "question"}},
-      {{"fact": "Assistant provided architecture guidelines", "source": "assistant", "type": "explicit"}}
-    ],
-    "decisions": [],
-    "preferences": [],
+
+    "episodic_events": [],
+
+    "factual_traits": [],
+
+    "semantic_concepts": [],
+
     "entities": {{
-      "Files/Paths": ["NONE"],
-      "Variables/Functions": ["NONE"],
-      "Errors/Bugs": ["NONE"]
+      "Files/Paths": [],
+      "Variables/Functions": [],
+      "Classes": [],
+      "Libraries": [],
+      "Frameworks": [],
+      "Models": [],
+      "Packages": [],
+      "Repositories": [],
+      "Commands": [],
+      "Errors/Bugs": [],
+      "URLs": [],
+      "Applications": [],
+      "Products": [],
+      "Projects": [],
+      "Organizations": [],
+      "People": [],
+      "Places": [],
+      "Books": [],
+      "Movies": []
     }}
   }}
 }}
-
----
-CONVERSATION CHUNK:
+===============================================================================
+CONVERSATION CHUNK
+===============================================================================
 {chunk_text}
 """
 
 ANCHORED_COMPRESSION_PROMPT = """
-You are a Memory Consolidation Engine.
-Your primary objective is to PRESERVE memory, not compress it.
-The EXISTING SUMMARY is the authoritative memory state accumulated from previous epochs.
-The NEW CONVERSATION CHUNK contains newly observed information.
-Your task is to UPDATE the existing memory state while minimizing information loss.
+You are an advanced Memory Consolidation, Conversation State Update, and Long-Term Memory Extraction Engine.
 
-──────────────────────────────────────
-CORE PRINCIPLES & RULES
-──────────────────────────────────────
-- Treat the EXISTING SUMMARY as a persistent memory document. DO NOT rewrite it from scratch.
-- Merged details should make the narrative text richer, more complete, and more detailed over time.
-- Never remove an existing fact unless the new chunk explicitly contradicts or provides a newer version of that exact fact.
-- Only additions and structural modifications belong in the `facts_json` registry block. Do not repeat old facts.
+Your task is to process a continuing conversation after the first epoch.
 
-──────────────────────────────────────
-FINAL MANDATORY FORMATTING RULE
-──────────────────────────────────────
-- Your entire response must be a single, structurally valid JSON object matching the exact template below. 
-- Do not print "SUMMARY:" or "FACTS_JSON:" as plain text headers outside of the object. 
-- Do not wrap the JSON object inside markdown backticks (like ```json).
+You are given:
 
-### Expected JSON Output Template:
+1. An EXISTING SUMMARY
+   - This is the rolling Short-Term Memory (STM) representing the accumulated conversational state from all previous epochs.
+
+2. A NEW CONVERSATION CHUNK
+   - This contains only the latest raw conversation messages.
+
+Your responsibilities are equally important:
+
+1. Update the rolling Short-Term Memory (STM) summary by intelligently merging the new conversation into the existing conversational state.
+
+2. Extract valuable Long-Term Memory (LTM) candidates ONLY from the NEW CONVERSATION CHUNK.
+
+Return ONLY a single valid JSON object.
+
+Do NOT output markdown.
+
+Do NOT wrap JSON inside code fences.
+
+Do NOT include explanations.
+
+===============================================================================
+UNDERSTANDING THE TWO MEMORY SYSTEMS
+===============================================================================
+
+This task maintains TWO completely different memory systems.
+
+SHORT-TERM MEMORY (summary)
+The summary represents the assistant's current conversational working memory.
+
+Its purpose is to preserve everything necessary for another assistant to
+continue the conversation naturally.
+
+The summary may contain temporary information such as:
+• current discussion topics
+• active tasks
+• ongoing plans
+• unresolved questions
+• temporary constraints
+• project state
+• current decisions
+
+LONG-TERM MEMORY (facts_json)
+The facts_json represents persistent knowledge.
+
+Only information that is expected to remain useful beyond the current
+conversation belongs here.
+
+Do NOT store temporary discussion context.
+
+Do NOT store temporary plans.
+
+Do NOT store short-lived questions.
+
+Do NOT store information that is only useful inside the current conversation.
+
+===============================================================================
+OBJECTIVE 1 — UPDATE THE ROLLING SUMMARY
+===============================================================================
+
+Treat the EXISTING SUMMARY as the authoritative conversational state.
+
+Do NOT rewrite it from scratch.
+
+Instead, intelligently merge the NEW CONVERSATION CHUNK into the existing
+summary while preserving important context.
+
+The updated summary should represent the CURRENT STATE of the conversation after
+processing the new messages.
+
+Preserve information unless:
+• it is explicitly contradicted,
+• it has become obsolete because newer information replaces it,
+• or it is no longer useful for continuing the conversation.
+
+When updating the summary, preserve and update whenever applicable:
+• user goals
+• current discussion topics
+• overall context
+• important decisions
+• conclusions reached
+• completed work
+• current progress
+• active tasks
+• unresolved questions
+• ongoing problems
+• constraints
+• assumptions
+• assistant commitments
+• conversation-relevant user preferences
+• important relationships between discussion topics
+• any information required for seamless continuation
+
+Merge new information naturally into the existing narrative.
+
+Do NOT simply append new paragraphs.
+
+Do NOT remove useful context merely to shorten the summary.
+
+Do NOT include:
+- Greetings.
+- Conversational introductions that contain no meaningful information.
+- Pleasantries or social niceties.
+- Acknowledgements or conversational filler.
+- Repeated information.
+- Unnecessary chronological narration.
+- Information that has no future conversational value.
+
+Exception:
+If an introduction establishes important conversational context, persistent user information, or information necessary for continuing the conversation, preserve that information appropriately in the summary and, if it has lasting value, extract it into `facts_json`.
+
+The goal is to preserve conversational continuity with minimal information loss.
+
+===============================================================================
+OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
+===============================================================================
+
+The ONLY source of truth for long-term memory extraction is the
+NEW CONVERSATION CHUNK.
+
+The EXISTING SUMMARY exists ONLY to update the rolling conversational state.
+
+Never use the EXISTING SUMMARY as evidence when extracting long-term memories.
+
+Extract only long-term memory candidates explicitly supported by the
+NEW CONVERSATION CHUNK.
+
+Any duplicate detection, semantic similarity checking, memory merging,
+memory updating, or conflict resolution with previously stored memories
+will be handled by downstream memory management systems.
+
+Before extracting a memory, ask yourself:
+
+"Will this information still be useful if the conversation resumes weeks or
+months later?"
+
+If YES:
+Store it inside facts_json.
+
+If NO:
+Keep it only inside the summary.
+
+------------------------------------------------------------------------------
+episodic_events
+------------------------------------------------------------------------------
+
+Store meaningful events or milestones.
+
+Examples:
+- User started learning Japanese.
+- User planned a Europe trip.
+- User completed backend refactoring.
+- User began building an AI assistant.
+
+Ignore trivial events.
+
+------------------------------------------------------------------------------
+factual_traits
+------------------------------------------------------------------------------
+
+Store stable or semi-stable information.
+
+Examples:
+- User name is Gaurav.
+- User lives in Delhi.
+- User prefers dark mode.
+- User is vegetarian.
+
+Never infer personal information.
+
+------------------------------------------------------------------------------
+semantic_concepts
+------------------------------------------------------------------------------
+
+Store important concepts central to the discussion.
+
+Examples:
+- Machine Learning
+- Habit Tracking
+- Memory Compression
+- Nutrition
+- Budget Planning
+
+Do NOT extract every noun.
+
+Only include concepts valuable for future retrieval.
+
+------------------------------------------------------------------------------
+entities
+------------------------------------------------------------------------------
+
+Extract important named entities introduced in the NEW CONVERSATION CHUNK.
+
+Populate whenever applicable:
+• Files/Paths
+• Variables/Functions
+• Classes
+• Libraries
+• Frameworks
+• Models
+• Packages
+• Repositories
+• Commands
+• Errors/Bugs
+• URLs
+• Applications
+• Products
+• Projects
+• Organizations
+• People
+• Places
+• Books
+• Movies
+
+If a category contains no entities, return ["NONE"].
+
+===============================================================================
+EXTRACTION RULES
+===============================================================================
+
+Only extract information explicitly supported by the NEW CONVERSATION CHUNK.
+
+Never hallucinate.
+
+Never guess.
+
+Never infer unstated preferences, intentions, or traits.
+
+If uncertain, omit it.
+
+Prefer precision over quantity.
+
+Normalize memories into concise canonical wording whenever possible.
+
+Avoid extracting temporary conversational details into long-term memory.
+
+===============================================================================
+EXPECTED JSON OUTPUT
+===============================================================================
+
 {{
-  "summary": "[Updated narrative summary document with preserved history and merged new information goes here]",
+  "summary": "...",
+
   "facts_json": {{
-    "new_facts": [
-      {{
-        "fact": "new fact text",
-        "source": "user",
-        "type": "explicit"
-      }}
-    ],
-    "new_decisions": [],
-    "new_preferences": [],
-    "new_entities": {{
+
+    "episodic_events": [],
+
+    "factual_traits": [],
+
+    "semantic_concepts": [],
+
+    "entities": {{
       "Files/Paths": [],
       "Variables/Functions": [],
-      "Errors/Bugs": []
+      "Classes": [],
+      "Libraries": [],
+      "Frameworks": [],
+      "Models": [],
+      "Packages": [],
+      "Repositories": [],
+      "Commands": [],
+      "Errors/Bugs": [],
+      "URLs": [],
+      "Applications": [],
+      "Products": [],
+      "Projects": [],
+      "Organizations": [],
+      "People": [],
+      "Places": [],
+      "Books": [],
+      "Movies": []
     }}
   }}
 }}
+===============================================================================
+EXISTING SUMMARY
+===============================================================================
 
----
-EXISTING SUMMARY:
 {existing_summary}
 
-NEW CONVERSATION CHUNK:
+===============================================================================
+NEW CONVERSATION CHUNK
+===============================================================================
+
 {chunk_text}
 """
 
 GROUNDING_PROMPT = """
-You are a **Memory Conflict Reconciliation & Super-Compression Engine**.
-Your **primary objective** is to analyze **ALL PREVIOUS COMPRESSION SUMMARIES** and produce a **SINGLE, COHESIVE, CONFLICT-FREE SUPER-COMPRESSION** that:
-- **Preserves all non-contradicted information** (never discard or shrink context).
-- **Actively resolves conflicts** by prioritizing the most recent, verified, or logically consistent version of facts.
-- **Clarifies ambiguities** and merges redundant or overlapping details into a **more complete and accurate** narrative.
-- **Extends all prior compressions** into a **master, unified summary** that is **richer, clearer, and more detailed** than any individual summary.
+You are an advanced Summary Maintenance and Conversation State Reconciliation Engine.
 
----
+Your task is NOT to summarize a conversation from scratch.
 
-### **CORE PRINCIPLES & RULES**
----
-1. **Treat ALL PREVIOUS SUMMARIES as the authoritative ledger.** DO NOT rewrite from scratch or omit details.
-2. **Resolve conflicts explicitly:**
-   - If facts contradict, **keep the most recent or verified version** and note the resolution.
-   - If information is ambiguous, **clarify it** in the super-compression.
-3. **Merge redundancies** into a single, polished statement.
-4. **Never remove a fact** unless it is **explicitly contradicted** by a newer, verified fact.
-5. **Output must be a SUPER-COMPRESSION:** A **more complete, conflict-free, and extended** version of all prior compressions.
+Your task is to improve the quality of an existing rolling conversation summary
+after many update cycles.
 
----
+The summary has been updated across multiple conversation epochs and may now
+contain:
+• duplicated information
+• repetitive wording
+• outdated context
+• obsolete assumptions
+• conflicting statements
+• inconsistent organization
+• unnecessary verbosity
 
-### **FINAL MANDATORY FORMATTING RULE**
----
-- Your **entire response** must be a **single, structurally valid JSON object** matching the template below.
-- **Do not** include any text outside the JSON braces.
-- **Do not** wrap the JSON in markdown backticks or add headers like "SUMMARY:".
+Your responsibility is to transform it into a cleaner, more coherent,
+well-structured conversation state while preserving all important information.
 
-### **Expected JSON Output Template:**
+Return ONLY a valid JSON object.
+
+Do NOT output markdown.
+
+Do NOT wrap JSON inside code fences.
+
+Do NOT include explanations.
+
+===============================================================================
+OBJECTIVE
+===============================================================================
+
+The input summary represents the assistant's accumulated Short-Term Memory (STM).
+
+Treat it as the authoritative representation of the conversation.
+
+Improve its quality WITHOUT losing important context.
+
+The output should still represent exactly the same conversation state,
+only better organized, more coherent, and easier for another assistant
+to understand.
+
+===============================================================================
+WHAT TO PRESERVE
+===============================================================================
+
+Preserve whenever applicable:
+• user goals
+• current discussion topics
+• overall context
+• important decisions
+• conclusions
+• completed work
+• current progress
+• active tasks
+• unresolved questions
+• ongoing problems
+• constraints
+• assumptions
+• assistant commitments
+• conversation-relevant user preferences
+• important contextual relationships
+• any information required for seamless continuation
+
+===============================================================================
+WHAT TO IMPROVE
+===============================================================================
+
+Improve the summary by:
+• removing duplicate information
+• merging repeated ideas
+• removing obsolete information that is no longer relevant
+• resolving contradictions using the most recent information
+• improving logical flow
+• improving readability
+• improving clarity
+• reducing unnecessary verbosity
+• preserving all meaningful context
+
+Do NOT aggressively shorten the summary.
+
+Optimize for information quality rather than minimum length.
+
+===============================================================================
+WHAT NOT TO DO
+===============================================================================
+
+Do NOT:
+• invent information
+• hallucinate facts
+• remove useful context
+• remove active tasks
+• remove unresolved questions
+• remove important decisions
+• convert the summary into bullet points
+• rewrite it as a chronological transcript
+
+Maintain it as a natural, coherent state-preserving narrative.
+
+===============================================================================
+OUTPUT FORMAT
+===============================================================================
+
 {{
-  "super_compression": "[Your reconciled, conflict-free master narrative that extends all previous compressions, preserves all non-contradicted information, and resolves all ambiguities or contradictions]",
-  "reconciled_facts_json": {{
-    "facts": [
-      {{
-        "fact": "Reconciled fact (merged/clarified from all summaries)",
-        "source": "user|assistant",
-        "type": "explicit|implied",
-        "epochs": [1, 2, 3],  // Indices of summaries where this fact appeared
-        "resolution": "kept|updated|contradiction_resolved|clarified"
-      }}
-    ],
-    "decisions": [
-      {{
-        "decision": "Reconciled decision text",
-        "source": "user|assistant",
-        "epochs": [1, 2],
-        "resolution": "kept|overridden"
-      }}
-    ],
-    "preferences": [
-      {{
-        "preference": "Reconciled preference text",
-        "source": "user|assistant",
-        "epochs": [1, 3],
-        "resolution": "kept|updated"
-      }}
-    ],
-    "entities": {{
-      "Files/Paths": ["file1.txt", "file2.txt"],
-      "Variables/Functions": ["varX", "funcY"],
-      "Errors/Bugs": ["errorA", "bugB"]
-    }},
-    "metadata": {{
-      "total_facts": 10,
-      "contradictions_resolved": 2,
-      "ambiguities_clarified": 3,
-      "epochs_merged": [1, 2, 3, 4]  // All summary epochs processed
-    }}
-  }}
+  "summary": "Improved rolling conversation summary."
 }}
 
----
-ALL PREVIOUS SUMMARIES (oldest to newest):
-{all_summaries}
+===============================================================================
+CURRENT SUMMARY
+===============================================================================
+
+{existing_summary}
 """
 
 async def compress_chunk(
@@ -202,62 +702,69 @@ async def compress_chunk(
     compression_epoch: int,
     max_summary_tokens: int = None,
 ) -> str:
-    """
-    - Epoch 1: Uses FIRST_EPOCH_PROMPT (raw chunks -> new summary + JSON).
-    - Epoch 2+: Uses ANCHORED_COMPRESSION_PROMPT (rewrite old summary + new chunks -> improved summary + JSON).
-    - Parses and stores JSON facts separately.
-    """
-    chunk_text = "\n".join(
-        f"[{m['role'].upper()}]: {m['content']}" for m in chunk_messages
-    )
+    try:
 
-    # --- Select prompt based on epoch ---
-    if compression_epoch == 1:
-        prompt = FIRST_EPOCH_PROMPT.format(chunk_text=chunk_text)
-    else:
-        prompt = ANCHORED_COMPRESSION_PROMPT.format(
-            existing_summary=existing_summary,
-            chunk_text=chunk_text
+
+        # --- Step 1: Prepare chunk_text ---
+        chunk_text = "\n".join(
+            f"[{m.get('role', 'unknown').upper()}]: {m.get('content', '')}"
+            for m in chunk_messages
         )
 
-    messages = [{"role": "user", "content": prompt}]
 
-    # --- Stream LLM response ---
-    result_tokens = []
-    async for chunk in provider_instance.generate_stream(model_name, messages):
-        if isinstance(chunk, dict):
-            result_tokens.append(chunk.get("text", ""))
+        # --- Step 2: Select prompt ---
+        if compression_epoch == 1:
+            prompt = FIRST_EPOCH_PROMPT.format(chunk_text=chunk_text)
+        else:
+            prompt = ANCHORED_COMPRESSION_PROMPT.format(
+                existing_summary=existing_summary or "",
+                chunk_text=chunk_text
+            )
 
-    raw_response = "".join(result_tokens).strip()
 
-    # --- Parse JSON payloads robustly out of the unified root schema ---
-    parsed_payload = extract_json_from_output(raw_response)
+        # --- Step 3: Stream LLM response ---
+        result_tokens = []
+        async for chunk in provider_instance.generate_stream(model_name, [{"role": "user", "content": prompt}]):
+            if isinstance(chunk, dict):
+                result_tokens.append(chunk.get("text", ""))
+        raw_response = "".join(result_tokens).strip()
 
-    if parsed_payload and isinstance(parsed_payload, dict):
-        new_summary = parsed_payload.get("summary", "").strip()
-        facts = parsed_payload.get("facts_json", {})
-    else:
-        # Emergency healing fallback if structure failed
-        print("[compression_service] Prompt broken schema layout. Initiating emergency flat text partition fallback.")
-        new_summary = raw_response
-        facts = None
-        if "SUMMARY:" in new_summary:
-            new_summary = new_summary.split("SUMMARY:")[-1]
-        if "FACTS_JSON:" in new_summary:
-            parts = new_summary.split("FACTS_JSON:")
-            new_summary = parts[0].strip()
-            facts = extract_json_from_output(parts[1])
 
-    # --- Save compression pass with separate facts ---
-    trigger_on_demand_save(
-        session_id=session_id,
-        epoch=compression_epoch,
-        event_type="compression_pass",
-        rolling_summary=new_summary,  # Text summary only
-        facts=facts,                    # Structured JSON facts
-    )
+        # --- Step 4: Parse JSON ---
 
-    return cap_summary_by_tokens(new_summary, max_summary_tokens)
+        parsed_payload = extract_json_from_output(raw_response)
+        if parsed_payload and isinstance(parsed_payload, dict):
+
+            new_summary = parsed_payload.get("summary", "").strip()
+            facts = parsed_payload.get("facts_json", {})
+        else:
+
+            # Emergency fallback
+            new_summary = raw_response
+            facts = None
+            if "SUMMARY:" in new_summary:
+                new_summary = new_summary.split("SUMMARY:")[-1]
+            if "FACTS_JSON:" in new_summary:
+                parts = new_summary.split("FACTS_JSON:")
+                new_summary = parts[0].strip()
+                facts = extract_json_from_output(parts[1])
+
+
+        # --- Step 5: Save and return ---
+        trigger_on_demand_save(
+            session_id=session_id,
+            epoch=compression_epoch,
+            event_type="compression_pass",
+            rolling_summary=new_summary,
+            facts=facts,
+        )
+        return cap_summary_by_tokens(new_summary, max_summary_tokens)
+
+    except Exception as e:
+        print(f"[ERROR] Compression failed at step: {e}")  # This is where '\n  "summary"' appears!
+        import traceback
+        traceback.print_exc()  # Print full stack trace to see the exact line
+        return cap_summary_by_tokens(existing_summary or "", max_summary_tokens)
 
 async def grounding_pass(
     summary_history: list[str],
@@ -273,50 +780,63 @@ async def grounding_pass(
     - Outputs holistic summary + canonical JSON (resolves all contradictions).
     - Parses and stores JSON facts separately.
     """
-    all_versions = [s for s in summary_history if s] + [current_summary]
-    if len(all_versions) < 2:
-        return current_summary  # Nothing to reconcile
+    try:
+        all_versions = [s for s in summary_history if s] + [current_summary]
+        if len(all_versions) < 2:
+            return cap_summary_by_tokens(current_summary, max_summary_tokens)
 
-    versions_text = "\n\n---\n\n".join(
-        f"Epoch {i+1}:\n{s}" for i, s in enumerate(all_versions)
-    )
+        versions_text = "\n\n---\n\n".join(
+            f"Epoch {i+1}:\n{s}" for i, s in enumerate(all_versions)
+        )
 
-    prompt = GROUNDING_PROMPT.format(all_summaries=versions_text)
-    messages = [{"role": "user", "content": prompt}]
+        prompt = GROUNDING_PROMPT.format(existing_summary=versions_text)
+        messages = [{"role": "user", "content": prompt}]
 
-    # --- Stream LLM response ---
-    result_tokens = []
-    async for chunk in provider_instance.generate_stream(model_name, messages):
-        if isinstance(chunk, dict):
-            result_tokens.append(chunk.get("text", ""))
+        # --- Stream LLM response ---
+        result_tokens = []
+        try:
+            async for chunk in provider_instance.generate_stream(model_name, messages):
+                if isinstance(chunk, dict):
+                    result_tokens.append(chunk.get("text", ""))
+        except Exception as e:
+            print(f"[Error] Streaming failed: {e}")
+            return cap_summary_by_tokens(current_summary, max_summary_tokens)
 
-    raw_response = "".join(result_tokens).strip()
+        raw_response = "".join(result_tokens).strip()
 
-    # --- Parse Master grounding payload object structures ---
-    parsed_payload = extract_json_from_output(raw_response)
+        # --- Parse Master grounding payload ---
+        parsed_payload = extract_json_from_output(raw_response)
 
-    if parsed_payload and isinstance(parsed_payload, dict):
-        grounded_summary = parsed_payload.get("super_compression", "").strip()
-        facts = parsed_payload.get("reconciled_facts_json", {})
-    else:
-        # Flat text partition emergency fallback
-        print("[grounding_service] Grounding fallback processing triggered.")
-        grounded_summary = raw_response
-        facts = None
-        if "SUPER_COMPRESSION:" in grounded_summary:
-            grounded_summary = grounded_summary.split("SUPER_COMPRESSION:")[-1]
-        if "RECONCILED_FACTS_JSON:" in grounded_summary:
-            parts = grounded_summary.split("RECONCILED_FACTS_JSON:")
-            grounded_summary = parts[0].strip()
-            facts = extract_json_from_output(parts[1])
+        if parsed_payload and isinstance(parsed_payload, dict):
+            grounded_summary = parsed_payload.get("summary", "").strip()
+            facts = parsed_payload.get("facts_json", {})
+        else:
+            # Flat text partition emergency fallback
+            print("[grounding_service] Grounding fallback processing triggered.")
+            grounded_summary = raw_response
+            facts = None
 
-    # --- Save grounding pass with separate facts ---
-    trigger_on_demand_save(
-        session_id=session_id,
-        epoch=compression_epoch,
-        event_type="grounding_pass",
-        rolling_summary=grounded_summary,  # Text summary only
-        facts=facts,                        # Structured JSON facts
-    )
+            if "SUPER_COMPRESSION:" in grounded_summary:
+                grounded_summary = grounded_summary.split("SUPER_COMPRESSION:")[-1].strip()
+            if "RECONCILED_FACTS_JSON:" in grounded_summary:
+                parts = grounded_summary.split("RECONCILED_FACTS_JSON:")
+                grounded_summary = parts[0].strip()
+                facts = extract_json_from_output(parts[1])
 
-    return cap_summary_by_tokens(grounded_summary, max_summary_tokens)
+        # --- Save grounding pass ---
+        try:
+            trigger_on_demand_save(
+                session_id=session_id,
+                epoch=compression_epoch,
+                event_type="grounding_pass",
+                rolling_summary=grounded_summary,
+                facts=facts,
+            )
+        except Exception as e:
+            print(f"[Error] Failed to save grounding pass: {e}")
+
+        return cap_summary_by_tokens(grounded_summary, max_summary_tokens)
+
+    except Exception as e:
+        print(f"[Error] Grounding failed: {e}")
+        return cap_summary_by_tokens(current_summary, max_summary_tokens)

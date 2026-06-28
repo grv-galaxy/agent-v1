@@ -139,13 +139,16 @@ The categories are:
 episodic_events
 ------------------------------------------------------------------------------
 
-Store meaningful events or milestones.
+Store meaningful events or milestones as a (subject, relation, object) triple.
 
 Examples:
-- User started building an AI memory system.
-- User planned a trip to Japan.
-- User completed a research project.
-- User began learning Spanish.
+- {{"subject": "User", "relation": "started", "object": "building an AI memory system"}}
+- {{"subject": "User", "relation": "planned", "object": "a trip to Japan"}}
+- {{"subject": "User", "relation": "completed", "object": "a research project"}}
+- {{"subject": "User", "relation": "began", "object": "learning Spanish"}}
+
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short past-tense relation describing the action (started, planned, completed, began, finished, decided, etc.)
 
 Ignore trivial events.
 
@@ -153,35 +156,34 @@ Ignore trivial events.
 factual_traits
 ------------------------------------------------------------------------------
 
-Store stable or semi-stable information about the user.
+Store stable or semi-stable information about the user as a (subject, relation, object) triple.
 
 Examples:
-- User name is Gaurav.
-- User lives in Delhi.
-- User prefers dark mode.
-- User is vegetarian.
-- User primarily develops AI applications.
+- {{"subject": "User", "relation": "name", "object": "Gaurav"}}
+- {{"subject": "User", "relation": "lives_in", "object": "Delhi"}}
+- {{"subject": "User", "relation": "prefers", "object": "dark mode"}}
+- {{"subject": "User", "relation": "is", "object": "vegetarian"}}
+- {{"subject": "User", "relation": "develops", "object": "AI applications"}}
+
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short, lowercase, snake_case relation (e.g. lives_in, prefers, name, is, owns, works_at).
+Do not invent a fixed list of relations — use whatever relation best fits the fact.
 
 Only extract facts explicitly stated or directly established.
-
 Never infer personal information.
 
 ------------------------------------------------------------------------------
 semantic_concepts
 ------------------------------------------------------------------------------
 
-Store important concepts that are central to the discussion.
+Store important concepts central to the discussion as plain strings (no triple needed here).
 
 Examples:
-- Machine Learning
-- Budget Planning
-- Habit Tracking
-- Nutrition
-- Memory Compression
-- Vector Databases
+- "Machine Learning"
+- "Budget Planning"
+- "Memory Compression"
 
 Do NOT extract every noun.
-
 Only include concepts that would improve future retrieval.
 
 ------------------------------------------------------------------------------
@@ -239,6 +241,13 @@ Bad:
 Good:
 "Preferred programming language: Python"
 
+For factual_traits and episodic_events, always output triples in the form
+{{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
+
+Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
+Set importance low (1-20) for one-off events, trivia, or minor occurrences.
+Set confidence based on how explicitly/clearly the fact was stated (0.9+ for direct statements, lower for implied ones).
+
 Only store information that is likely to improve future conversations.
 
 ===============================================================================
@@ -250,9 +259,11 @@ EXPECTED JSON OUTPUT
 
   "facts_json": {{
 
-    "episodic_events": [],
+    "episodic_events": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
 
-    "factual_traits": [],
+    "factual_traits": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
 
     "semantic_concepts": [],
 
@@ -437,13 +448,16 @@ Keep it only inside the summary.
 episodic_events
 ------------------------------------------------------------------------------
 
-Store meaningful events or milestones.
+Store meaningful events or milestones as a (subject, relation, object) triple.
 
 Examples:
-- User started learning Japanese.
-- User planned a Europe trip.
-- User completed backend refactoring.
-- User began building an AI assistant.
+- {{"subject": "User", "relation": "started", "object": "building an AI memory system"}}
+- {{"subject": "User", "relation": "planned", "object": "a trip to Japan"}}
+- {{"subject": "User", "relation": "completed", "object": "a research project"}}
+- {{"subject": "User", "relation": "began", "object": "learning Spanish"}}
+
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short past-tense relation describing the action (started, planned, completed, began, finished, decided, etc.)
 
 Ignore trivial events.
 
@@ -451,32 +465,35 @@ Ignore trivial events.
 factual_traits
 ------------------------------------------------------------------------------
 
-Store stable or semi-stable information.
+Store stable or semi-stable information about the user as a (subject, relation, object) triple.
 
 Examples:
-- User name is Gaurav.
-- User lives in Delhi.
-- User prefers dark mode.
-- User is vegetarian.
+- {{"subject": "User", "relation": "name", "object": "Gaurav"}}
+- {{"subject": "User", "relation": "lives_in", "object": "Delhi"}}
+- {{"subject": "User", "relation": "prefers", "object": "dark mode"}}
+- {{"subject": "User", "relation": "is", "object": "vegetarian"}}
+- {{"subject": "User", "relation": "develops", "object": "AI applications"}}
 
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short, lowercase, snake_case relation (e.g. lives_in, prefers, name, is, owns, works_at).
+Do not invent a fixed list of relations — use whatever relation best fits the fact.
+
+Only extract facts explicitly stated or directly established.
 Never infer personal information.
 
 ------------------------------------------------------------------------------
 semantic_concepts
 ------------------------------------------------------------------------------
 
-Store important concepts central to the discussion.
+Store important concepts central to the discussion as plain strings (no triple needed here).
 
 Examples:
-- Machine Learning
-- Habit Tracking
-- Memory Compression
-- Nutrition
-- Budget Planning
+- "Machine Learning"
+- "Budget Planning"
+- "Memory Compression"
 
 Do NOT extract every noun.
-
-Only include concepts valuable for future retrieval.
+Only include concepts that would improve future retrieval.
 
 ------------------------------------------------------------------------------
 entities
@@ -525,6 +542,13 @@ Prefer precision over quantity.
 
 Normalize memories into concise canonical wording whenever possible.
 
+For factual_traits and episodic_events, always output triples in the form
+{{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
+
+Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
+Set importance low (1-20) for one-off events, trivia, or minor occurrences.
+Set confidence based on how explicitly/clearly the fact was stated (0.9+ for direct statements, lower for implied ones).
+
 Avoid extracting temporary conversational details into long-term memory.
 
 ===============================================================================
@@ -536,9 +560,11 @@ EXPECTED JSON OUTPUT
 
   "facts_json": {{
 
-    "episodic_events": [],
+    "episodic_events": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
 
-    "factual_traits": [],
+    "factual_traits": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
 
     "semantic_concepts": [],
 

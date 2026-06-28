@@ -244,6 +244,9 @@ Good:
 For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
+Always use "User" as the canonical subject for the person you are speaking with, 
+even if they introduce themselves by name. Do not use their name as the subject.
+
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.
 Set confidence based on how explicitly/clearly the fact was stated (0.9+ for direct statements, lower for implied ones).
@@ -544,6 +547,9 @@ Normalize memories into concise canonical wording whenever possible.
 
 For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
+
+Always use "User" as the canonical subject for the person you are speaking with, 
+even if they introduce themselves by name. Do not use their name as the subject.
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.

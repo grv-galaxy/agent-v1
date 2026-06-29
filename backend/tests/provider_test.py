@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 from fastapi import HTTPException
 from tabulate import tabulate  # Correct function import
 
-# Add current directory to path to ensure imports work
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add backend directory to path to ensure app package is discoverable
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from providers.provider_factory import ProviderFactory
-from providers.base_provider import BaseProvider
+from app.providers.factory import ProviderFactory
+from app.providers.base import BaseProvider
 
 class Color:
     GREEN = '\033[92m'
@@ -65,7 +65,7 @@ async def run_diagnostic(provider_name: str):
     return results
 
 async def main():
-    print(f"\n{Color.BLUE}🚀 STARTING MULTI-AGENT PROVIDER ARCHITECTURE DIAGNOSTIC{Color.END}\n")
+    print(f"\n{Color.BLUE}STARTING MULTI-AGENT PROVIDER ARCHITECTURE DIAGNOSTIC{Color.END}\n")
     
     all_results = []
     

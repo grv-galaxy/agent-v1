@@ -36,11 +36,12 @@ class ConfigResponse(BaseModel):
 
 
 class MemoryConfigRequest(BaseModel):
-    memory_enabled: bool
-    use_separate_provider: bool
+    memory_enabled: Optional[bool] = None
+    use_separate_provider: Optional[bool] = None
     provider: Optional[str] = None
     model_name: Optional[str] = None
     api_key: Optional[str] = None
+    long_term_memory_enabled: Optional[bool] = None
 
 
 class VerifyRequest(BaseModel):
@@ -170,30 +171,36 @@ async def resolve_provider_config(payload: VerifyRequest) -> Dict[str, Any]:
 @router.post("/memory-config")
 async def save_memory_config(payload: MemoryConfigRequest):
     """Save memory settings to .env."""
-    if payload.use_separate_provider:
-        if not all([payload.provider, payload.model_name]):
-            raise HTTPException(
-                status_code=400,
-                detail="Memory provider, API key, and model name are required when using a separate provider."
-            )
     
     # Prepare config to write
-    new_config = {
-        "MEMORY_ENABLED": str(payload.memory_enabled).lower(),
-        "USE_SEPARATE_MEMORY_PROVIDER": str(payload.use_separate_provider).lower(),
-    }
+    new_config = {}
     
-    if payload.use_separate_provider:
-        new_config["MEMORY_PROVIDER"] = payload.provider
-        new_config["MEMORY_MODEL"] = payload.model_name
-        if payload.api_key:
-            new_config["MEMORY_API_KEY"] = payload.api_key
-    else:
-        new_config["MEMORY_PROVIDER"] = ""
-        new_config["MEMORY_MODEL"] = ""
-        new_config["MEMORY_API_KEY"] = ""
+    if payload.memory_enabled is not None:
+        new_config["MEMORY_ENABLED"] = str(payload.memory_enabled).lower()
+        
+    if payload.long_term_memory_enabled is not None:
+        new_config["LONG_TERM_MEMORY_ENABLED"] = str(payload.long_term_memory_enabled).lower()
+        
+    if payload.use_separate_provider is not None:
+        new_config["USE_SEPARATE_MEMORY_PROVIDER"] = str(payload.use_separate_provider).lower()
+        
+        if payload.use_separate_provider:
+            if not all([payload.provider, payload.model_name]):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Memory provider, API key, and model name are required when using a separate provider."
+                )
+            new_config["MEMORY_PROVIDER"] = payload.provider
+            new_config["MEMORY_MODEL"] = payload.model_name
+            if payload.api_key:
+                new_config["MEMORY_API_KEY"] = payload.api_key
+        else:
+            new_config["MEMORY_PROVIDER"] = ""
+            new_config["MEMORY_MODEL"] = ""
+            new_config["MEMORY_API_KEY"] = ""
     
-    await write_memory_config(new_config)
+    if new_config:
+        await write_memory_config(new_config)
     return {"success": True, "message": "Memory config saved successfully."}
 
 

@@ -29,7 +29,8 @@ def get_saved_config():
         "USE_SEPARATE_MEMORY_PROVIDER": file_values.get("USE_SEPARATE_MEMORY_PROVIDER", "false").strip(),
         "MEMORY_PROVIDER": file_values.get("MEMORY_PROVIDER", "").strip(),
         "MEMORY_MODEL": file_values.get("MEMORY_MODEL", "").strip(),
-        "MEMORY_API_KEY": file_values.get("MEMORY_API_KEY", "").strip()
+        "MEMORY_API_KEY": file_values.get("MEMORY_API_KEY", "").strip(),
+        "LONG_TERM_MEMORY_ENABLED": file_values.get("LONG_TERM_MEMORY_ENABLED", "true").strip()
     }
 
 def set_saved_config(provider: str, model_name: str, api_key: str = None):
@@ -91,7 +92,8 @@ async def get_config():
         "use_separate_memory_provider": str(config.get("USE_SEPARATE_MEMORY_PROVIDER") or config.get("use_separate_memory_provider", "false")).lower() == "true",
         "memory_provider": config.get("MEMORY_PROVIDER") or config.get("memory_provider", ""),
         "memory_model": config.get("MEMORY_MODEL") or config.get("memory_model", ""),
-        "has_memory_api_key": bool(config.get("MEMORY_API_KEY") or config.get("memory_api_key"))
+        "has_memory_api_key": bool(config.get("MEMORY_API_KEY") or config.get("memory_api_key")),
+        "long_term_memory_enabled": str(config.get("LONG_TERM_MEMORY_ENABLED") or config.get("long_term_memory_enabled", "true")).lower() == "true"
     }
 
 @router.post("/verify-provider")

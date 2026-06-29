@@ -296,6 +296,7 @@ export default function MemorySettingsCard({
     total_messages_compressed: 0,
     estimated_tokens_saved: 0,
   });
+  const [longTermMemoryEnabled, setLongTermMemoryEnabled] = useState(false);
   const [statsStatus, setStatsStatus] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const localConfigFetchedRef = useRef(false);
@@ -349,6 +350,7 @@ export default function MemorySettingsCard({
     }
   }
 
+
   useEffect(() => {
   let isMounted = true;
 
@@ -369,6 +371,7 @@ export default function MemorySettingsCard({
         const nextProvider = data.memory_provider || '';
         const nextModel = data.memory_model || '';
         const nextHasApiKey = Boolean(data.has_memory_api_key);
+        const nextLongTermMemoryEnabled = data.long_term_memory_enabled !== false;
 
         // 1. Sync baseline reference tracker
         memoryInitialValues.current = {
@@ -385,6 +388,7 @@ export default function MemorySettingsCard({
         setMemoryProvider(nextProvider);
         setMemoryModel(nextModel);
         setMemoryApiKeyExists(nextHasApiKey);
+        setLongTermMemoryEnabled(nextLongTermMemoryEnabled);
         setMemoryApiKey('');
         setMemoryApiKeyLocked(true);
         
@@ -460,6 +464,7 @@ export default function MemorySettingsCard({
       use_separate_provider: useSeparate,
       provider: useSeparate ? memoryProvider : null,
       model_name: useSeparate ? memoryModel.trim() : null,
+      long_term_memory_enabled: longTermMemoryEnabled,
     };
 
     if (useSeparate && editedFields.apiKey) {
@@ -758,28 +763,62 @@ export default function MemorySettingsCard({
       </section>
 
       <section className="mt-10">
-        <SectionTitle>Memory Stats</SectionTitle>
+        <SectionTitle>Long-Term Memory</SectionTitle>
+
         <div className="rounded-[10px] border border-[#1F1F1F] bg-[#111111] p-6">
           <div className="mb-5 flex items-center justify-between gap-4">
-            <p className="text-[14px] font-medium text-[#E8E8E8]">This session</p>
+            <p className="text-[14px] font-medium text-[#E8E8E8]">
+              Enable Long-Term Memory
+            </p>
+
             <button
               type="button"
-              onClick={() => loadStats({ force: true })}
-              disabled={isLoadingStats}
-              className="flex h-8 items-center gap-2 rounded-[8px] border border-[#2A2A2A] px-3 text-[13px] text-[#E8E8E8] transition duration-150 hover:border-[#6366F1] hover:text-[#6366F1] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={async () => {
+                const nextValue = !longTermMemoryEnabled;
+                setLongTermMemoryEnabled(nextValue);
+                // Optional: Show a temporary loading state
+                // setIsSaving(true);
+                try {
+                  await fetch(`${API_BASE_URL}/api/memory-config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      long_term_memory_enabled: nextValue,
+                    }),
+                  });
+                } catch (err) {
+                  console.error('Failed to update long-term memory status:', err);
+                  // Revert UI state on error
+                  setLongTermMemoryEnabled(longTermMemoryEnabled);
+                }
+                // Optional: Hide loading state
+                // setIsSaving(false);
+              }}
+              className={`relative h-7 w-12 rounded-full transition-all duration-300 ease-in-out ${
+                longTermMemoryEnabled ? "bg-[#6366F1]" : "bg-[#2A2A2A]"
+              }`}
+              aria-pressed={longTermMemoryEnabled}
+              aria-label="Toggle Long-Term Memory"
             >
-              {isLoadingStats ? <Spinner /> : null}
-              Refresh
+              <span
+                className={`absolute top-0.5 left-0.5 h-6 w-6 rounded-full bg-white shadow-md transition-transform duration-300 ease-in-out ${
+                  longTermMemoryEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
             </button>
           </div>
-          <div className="grid gap-3">
-            <StatLine label="Total compressions this session:" value={stats.total_compressions} />
-            <StatLine label="Messages compressed:" value={stats.total_messages_compressed} />
-            <StatLine label="Estimated tokens saved:" value={stats.estimated_tokens_saved} />
-            <StatLine label="Active sessions in memory:" value={stats.active_sessions} />
+
+          <div className="mt-2">
+            <p className="text-[13px] leading-6 text-[#8B8B8B]">
+              Store important facts and preferences
+              across conversations.
+            </p>
           </div>
+
           {statsStatus ? (
-            <p className="mt-4 text-[13px] text-[#EF4444]">{statsStatus.message}</p>
+            <p className="mt-4 text-[13px] text-[#EF4444]">
+              {statsStatus.message}
+            </p>
           ) : null}
         </div>
       </section>

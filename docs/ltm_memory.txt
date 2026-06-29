@@ -1,0 +1,446 @@
+================================================================
+ MEMORY MANAGER MECHANISM — FINAL FULL ARCHITECTURE PLAN
+ (Local, Single-User, FastMCP Background Process, Triple-Based,
+  Self-Deduplicating, Self-Decaying, Self-Improving)
+================================================================
+
+GOAL
+----
+Convert raw compression-pass output (facts.jsonl) into a clean,
+deduplicated, structured long-term memory store that lives entirely
+on the user's local machine. No server, no multi-tenancy. Only the
+LLM extraction call (and optionally embeddings) goes out over network
+via API key. Everything else — storage, dedup, decay, retrieval —
+runs locally.
+
+This is a LONG-TERM memory layer. It does NOT feed the active chat
+context window directly and has NO latency requirement. Short-term
+memory (the rolling summary) handles the live session. This system
+exists purely to make the agent smarter over time, asynchronously.
+
+
+================================================================
+PART A — DATA FLOW OVERVIEW
+================================================================
+
+  [Chat happens] -> [Compression LLM call] -> appends triple-shaped
+  facts to facts.jsonl (raw, unprocessed, append-only log)
+
+                          |
+                          v
+
+  [FastMCP Memory Manager - separate detached background process]
+  Triggered by: threshold / app-close / app-startup
+  Reads unprocessed JSONL range -> runs full pipeline -> writes to:
+     - SQLite + sqlite-vec   (structured long-term store, source of truth)
+     - Markdown files        (human/model-readable projection)
+
+                          |
+                          v
+
+  [Main app, anytime] -> reads SQLite+sqlite-vec or markdown files
+  for retrieval -> injects into agent context as needed
+  (Main process NEVER writes to the structured store directly)
+
+
+================================================================
+PART B — EXTRACTION (Already Implemented in Prompts)
+================================================================
+FIRST_EPOCH_PROMPT and ANCHORED_COMPRESSION_PROMPT already updated to
+output triples directly:
+
+  {
+    "subject": "...",      <- canonical, always "User" for the human
+                               unless multiple named people are
+                               explicitly being discussed
+    "relation": "...",     <- open vocabulary, lowercase snake_case
+    "object": "...",       <- must carry real meaning (never a bare
+                               pronoun like "himself")
+    "importance": 1-100,   <- prior set by LLM: identity/stable facts
+                               = 80-100, one-off events/trivia = 1-20
+    "confidence": 0-1      <- how explicitly the fact was stated
+  }
+
+Rules already baked into prompts:
+  - Always use "User" as canonical subject for the human
+  - Skip triples where object is a pronoun / carries no meaning
+  - factual_traits + episodic_events use triple shape
+  - semantic_concepts stay as plain strings
+  - entities stay as categorized lists (existing schema)
+  - GROUNDING_PROMPT currently summary-only (facts reconciliation
+    deferred entirely to the background memory manager, not the
+    grounding LLM call)
+
+No NER/dependency-parsing pipeline used as primary extractor — LLM
+extraction is more accurate for this. Optional: cheap spaCy NER pass
+usable later as a validation guard rail only, not required for v1.
+
+
+================================================================
+PART C — TRIGGER MECHANISM (No Latency Pressure, Self-Healing)
+================================================================
+
+Three independent triggers, each fires the SAME background process:
+
+  1. THRESHOLD TRIGGER
+     Every N new lines appended to facts.jsonl (e.g. N=5-10) during
+     an active session -> fire background process.
+     Purpose: batch work during long sessions, keep store reasonably
+     fresh without per-fact overhead.
+
+  2. APP-CLOSE TRIGGER
+     On app close event -> fire background process (best-effort,
+     not guaranteed to run if force-killed/crashed).
+     App does NOT wait for it. Fire-and-forget. App closes instantly.
+
+  3. APP-STARTUP TRIGGER (the actual guarantee)
+     On every app launch -> check cursor file vs facts.jsonl length.
+     If unprocessed lines exist (because threshold wasn't hit and/or
+     close trigger never fired due to crash/force-kill/power loss)
+     -> fire background process immediately, non-blocking, before
+     or alongside UI becoming interactive.
+
+  Why three: threshold = efficiency, close = best-effort speed,
+  startup = guarantee. Nothing is ever permanently lost because
+  facts.jsonl is append-only and durable regardless of how the
+  app died. Startup trigger always reconciles.
+
+
+================================================================
+PART D — PROCESS ISOLATION (FastMCP, Detached)
+================================================================
+  - Background memory manager runs as a separate FastMCP-callable
+    process, NOT inside the same process as the chat/compression LLM
+    call.
+  - Process is DETACHED from the main app's process tree
+    (e.g. subprocess.Popen(..., start_new_session=True) on
+    Linux/Mac, DETACHED_PROCESS flag on Windows) so it survives
+    after the main Electron app process exits.
+  - Main process never blocks on it. Fire trigger, move on.
+  - FastMCP wrapper also makes the memory manager callable on-demand
+    as a tool if needed (e.g. "force sync memory now" from a debug
+    menu), not just silently triggered.
+
+
+================================================================
+PART E — LOCK + CURSOR (Concurrency & Idempotency Safety)
+================================================================
+  LOCK FILE: backend/data/locks/memory_manager.lock
+    - Acquired at start of every run
+    - If already held -> new trigger no-ops (another run in progress)
+    - Released on exit (success OR final failure)
+
+  CURSOR FILE: backend/data/cursors/facts_cursor.json
+    - Tracks last successfully processed line/byte-offset in
+      facts.jsonl
+    - CURSOR ONLY ADVANCES IF THE ENTIRE RUN SUCCEEDS CLEANLY.
+      No partial/per-fact cursor advancement — keeps logic simple
+      and safe, because retrying the same range on failure is itself
+      safe (dedup logic naturally absorbs any partially-completed
+      work from a failed prior attempt — reprocessing an already
+      structurally/semantically-matched fact just increments
+      frequency, doesn't duplicate it).
+
+
+================================================================
+PART F — RETRY + FAILURE LOGGING
+================================================================
+  On each triggered run:
+
+    attempt = 1
+    while attempt <= 2:
+      try:
+        acquire lock
+        run full pipeline (Part G) on unprocessed JSONL range
+        on success:
+          advance cursor
+          release lock
+          exit(0)
+      except Exception as e:
+        if attempt == 2:
+          write failure log to:
+            backend/data/logs/ltm/<YYYY-MM-DD>_<HH-MM-SS>.log
+          contents:
+            - timestamp
+            - JSONL range attempted (line numbers / byte offsets)
+            - exception type + message
+            - attempt count exhausted (2/2)
+          release lock (cursor NOT advanced)
+          exit(1)
+        else:
+          brief backoff (2-5 sec) before retry
+          attempt += 1
+
+  Failure after 2 attempts is NOT permanent. Cursor stays put, so
+  the NEXT natural trigger (threshold, close, or startup) will
+  retry the same unprocessed range automatically — self-healing,
+  no manual intervention or separate retry-scheduler needed.
+
+
+================================================================
+PART G — PIPELINE STEPS (What Runs Inside Each Triggered Job)
+================================================================
+
+  1. Acquire lock (abort if already held)
+  2. Read cursor -> determine new JSONL lines since last successful run
+  3. Read those new triple-shaped facts from facts.jsonl
+  4. For each new triple:
+
+     a. STRUCTURAL CHECK (cheap, exact)
+        hash(subject, relation, object) match in store?
+        -> YES: increment frequency, update last_seen, append
+                raw_text variant, STOP (no new row)
+        -> NO: continue
+
+     b. SEMANTIC CHECK (vector similarity, same subject namespace)
+        embed triple as "<subject> <relation> <object>"
+        cosine_similarity vs existing embeddings > 0.85 ?
+        -> YES: treat as same fact
+                - append raw_text variant
+                - increment frequency
+                - run confidence reinforcement (step 5)
+                - if new phrasing more complete, promote to canonical
+                - if relation differs but subject+object match,
+                  normalize relation via alias table (step 4d)
+        -> NO: continue, insert as new row
+
+     c. CONTRADICTION CHECK
+        same subject + relation, different object?
+        -> YES: penalize OLD fact confidence (contradiction penalty,
+                see step 5), insert NEW fact with its own confidence,
+                keep both — recency + confidence decide which surfaces
+                at retrieval time (handles facts that genuinely change,
+                e.g. user moved cities)
+
+     d. RELATION NORMALIZATION
+        check relation-alias table (e.g. "loves"/"enjoys"/"prefers"
+        -> canonical "likes"); apply canonical form before storing.
+        Open vocabulary at extraction time — NOT a fixed ontology.
+        Alias table itself grows over time via periodic batch
+        clustering of relation strings by embedding similarity
+        (separate maintenance job, not part of every run).
+
+  5. CONFIDENCE UPDATE (asymmetric, not static)
+     - On reinforcement:
+         confidence = confidence + (1 - confidence) * REINFORCE_RATE
+         (diminishing returns toward 1.0; REINFORCE_RATE ~ 0.2)
+     - On contradiction:
+         confidence = confidence * CONTRADICTION_PENALTY
+         (penalty > reinforcement gain; CONTRADICTION_PENALTY ~ 0.5)
+     (Both constants tunable empirically over time.)
+
+  6. IMPORTANCE vs FREQUENCY (two separate knobs, never conflated)
+     - importance: set at extraction time (LLM-assigned prior based
+       on fact type). GATES whether a fact can ever be purged.
+       High-importance facts are NEVER purged, only archived.
+     - frequency: reinforcement count. Used ONLY for ranking within
+       retained facts, never for deciding what to keep.
+     - decay_score = recency * frequency_weight * confidence
+       (computed for ranking/lifecycle decisions only)
+
+  7. LIFECYCLE SWEEP (state machine, run every job, not just on new facts)
+       active   -> dormant   : no reinforcement + no retrieval hit
+                               for N days (N depends on layer —
+                               episodic = short window, factual =
+                               long window)
+       dormant  -> archived   : unused for 2N days
+       archived -> purged     : ONLY if importance is LOW.
+                               High-importance facts are NEVER purged,
+                               only ever archived (kept for audit/history)
+
+  8. WRITE TO STORE
+     - SQLite + sqlite-vec (single local file, single process,
+       no server/daemon needed)
+       Triple {
+         id                : hash(subject, relation, object)
+         subject, relation, object
+         raw_text_variants : [string]
+         layer             : factual | episodic | semantic
+         embedding         : vector (384-dim, local small model
+                              OR API-based, see Part H)
+         confidence        : float
+         importance        : int
+         frequency         : int
+         decay_score       : float
+         retrieval_count          : int
+         successful_answer_count  : int
+         last_used                : timestamp
+         provenance : {
+           conversation_id, message_ids, compression_epoch,
+           extractor_version, timestamp_first_seen,
+           timestamp_last_seen
+         }
+         status : active | dormant | archived
+       }
+
+  9. UPDATE MARKDOWN PROJECTIONS (Part I)
+     For any touched facts relevant to user identity or task state,
+     regenerate/update the corresponding markdown file(s) from the
+     current SQLite data (SQLite is source of truth; markdown is a
+     generated projection, regenerated, not separately maintained).
+
+ 10. Advance cursor, release lock, exit(0)
+
+
+================================================================
+PART H — EMBEDDING STRATEGY (Local-First)
+================================================================
+  Given fully local, single-user constraint:
+
+  - Storage: SQLite + sqlite-vec (NOT Qdrant/Postgres/pgvector —
+    those need a running server process, wrong fit for an end-user
+    app that should just be a file on disk)
+
+  - Embedding generation, two options:
+    a. Local small model (e.g. all-MiniLM-L6-v2 / bge-small,
+       384-dim) — fully offline, ~90MB disk, ~200-300MB RAM only
+       while actively embedding (load on-demand, unload after,
+       don't keep resident permanently)
+    b. API-based embeddings (same provider as extraction LLM,
+       if available) — near-zero local resource cost, needs
+       network + tiny per-call cost
+
+  - Recommendation: if already calling an external LLM API for
+    extraction, reuse that provider's embedding endpoint to avoid
+    maintaining a second local model. If fully offline operation is
+    a hard requirement, use the local small model instead.
+
+  Realistic footprint at this scale (single user, realistic years
+  of usage, low tens of thousands of facts at most):
+    - SQLite+sqlite-vec file: a few MB to low tens of MB
+    - RAM during active background job: 50-300MB depending on
+      embedding choice
+    - RAM when idle: near-zero (process exits after each run,
+      nothing stays resident)
+
+
+================================================================
+PART I — MARKDOWN FILE PROJECTIONS
+================================================================
+  [PENDING CLARIFICATION: "OKF architecture" referenced by user —
+   exact structure to be confirmed/adjusted once clarified. Below
+   is the working structure used until corrected.]
+
+  backend/data/user/user_data.md
+  backend/data/task/active_<task_name>.md
+  backend/data/task/archive/archive_<task_name>.md
+  backend/data/logs/ltm/<YYYY-MM-DD>_<HH-MM-SS>.log
+  backend/data/locks/memory_manager.lock
+  backend/data/cursors/facts_cursor.json
+
+  Each markdown file carries a metadata header + structured sections
+  so the model can locate information by position/heading, e.g.:
+
+  user_data.md:
+  ---
+  entity: User
+  last_updated: <timestamp>
+  source_facts: [fact_id_1, fact_id_2, ...]
+  ---
+  ## Identity
+  - Name: ...
+  - Location: ...
+  ## Preferences
+  - ... (confidence, importance shown inline or as metadata)
+  ## Relationships
+  - ...
+
+  active_<task>.md / archive_<task>.md:
+  ---
+  task: "<task_name>"
+  status: active | archived
+  created: <timestamp>
+  last_updated: <timestamp>
+  ---
+  ## Goal
+  ...
+  ## Progress
+  ...
+  ## Open Questions
+  ...
+
+  Task lifecycle: when an episodic_event triple indicates completion
+  (e.g. subject=User, relation=completed, object=<task>), the
+  background manager moves the file from active_ to archive/archive_
+  and updates its status field.
+
+  IMPORTANT: SQLite+sqlite-vec is the single source of truth.
+  Markdown files are a generated projection for human/model
+  readability — regenerated from SQLite data, never edited
+  independently, never diverge as a second source of truth.
+
+
+================================================================
+PART J — RETRIEVAL (Main Process, Read-Only)
+================================================================
+  get_facts(query, layer?, subject?, top_k, min_confidence)
+    1. Embed query
+    2. Vector similarity search (filtered: status=active,
+       importance >= threshold if specified)
+    3. Re-rank by:
+         final_rank_score = vector_similarity
+                           * confidence
+                           * decay_score
+                           * (0.5 + 0.5 * success_rate)
+       where success_rate = successful_answer_count
+                             / max(retrieval_count, 1)
+    4. Return top_k triples (+ raw_text for natural display)
+    5. Increment retrieval_count on returned facts
+    6. (Async, after response used) update successful_answer_count
+       based on whether fact was actually referenced/useful
+
+  Main process also directly reads user_data.md / active_<task>.md
+  for fast context injection without needing a vector query, when
+  the relevant info is already known to live in those files.
+
+  Main process NEVER writes to SQLite or markdown directly — only
+  the background memory manager writes; main process only reads.
+
+
+================================================================
+PART K — RELATION NORMALIZATION MAINTENANCE (Periodic, Separate Job)
+================================================================
+  Not run every memory-manager pass — run occasionally (e.g. weekly,
+  or after every N memory-manager runs):
+    - Pull all distinct relation strings used so far
+    - Cluster by embedding similarity
+    - Propose/apply merges into the relation-alias table
+      (e.g. likes/loves/enjoys/prefers -> canonical "likes")
+  Keeps the graph clean over time without blocking new relation
+  types at ingestion time (open vocabulary preserved).
+
+
+================================================================
+PART L — BUILD ORDER
+================================================================
+  1. Finalize prompt changes (triple shape) — DONE
+  2. Set up SQLite + sqlite-vec schema (Part G step 8)
+  3. Implement lock + cursor mechanism (Part E)
+  4. Implement trigger wiring: threshold counter, app-close hook,
+     app-startup check (Part C)
+  5. Implement FastMCP detached background process wrapper (Part D)
+  6. Implement pipeline steps 4a-4d (structural/semantic/contradiction/
+     relation-normalization checks) (Part G)
+  7. Implement confidence update + importance/frequency logic
+     (Part G steps 5-6)
+  8. Implement lifecycle sweep (Part G step 7)
+  9. Implement markdown projection writer (Part I)
+ 10. Implement retry + failure logging (Part F)
+ 11. Implement retrieval API (Part J)
+ 12. Implement periodic relation-normalization maintenance job (Part K)
+ 13. Test end-to-end: simulate threshold trigger, force-kill mid-run
+     (verify cursor doesn't advance, retry on next launch works),
+     verify dedup against existing JSONL logs as seed data
+ 14. Tune thresholds (similarity 0.85, reinforce/contradiction rates,
+     decay windows, N for threshold trigger) against real usage
+
+================================================================
+OPEN ITEM
+================================================================
+  "OKF architecture" reference for markdown file structure — needs
+  clarification from user before Part I is finalized. Current
+  structure in Part I is a placeholder until confirmed.
+
+================================================================
+END OF PLAN
+================================================================

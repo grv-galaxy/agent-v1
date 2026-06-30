@@ -25,19 +25,47 @@ The structure is designed so that new features can be added without creating tig
 # Directory Structure
 
 ```text
-backend/
-├── .env
-├── main.py
-├── app/
-│   ├── __init__.py
+.
+├── backend/
+│   ├── .env
 │   ├── main.py
-│   ├── api/
-│   ├── core/
-│   ├── providers/
-│   ├── services/
-│   └── utils/
+│   └── app/
+│       ├── __init__.py
+│       ├── main.py
+│       ├── api/
+│       ├── core/
+│       ├── providers/
+│       ├── services/
+│       └── utils/
+├── mcp/
+│   ├── shared/
+│   │   ├── base.py
+│   │   ├── registry.py
+│   │   └── utils.py
+│   └── memory/
+│       ├── pyproject.toml
+│       ├── server.py
+│       ├── handlers.py
+│       ├── tools.py
+|       ├── test_client.py
+│       ├── config.py
+│       └── core/
+│           ├── engine.py
+│           ├── extractor.py
+│           ├── deduplicator.py
+│           ├── contradiction.py
+│           ├── confidence.py
+│           ├── importance.py
+│           ├── storage.py
+│           ├── vector_store.py
+│           ├── markdown.py
+│           ├── retrieval.py
+│           ├── models.py
+│           └── schemas.py
 ├── data/
-└── tests/
+├── tests/
+├── docker-compose.yml
+└── Dockerfile
 ```
 
 ---

@@ -5,15 +5,12 @@ import re
 from datetime import datetime, timezone
 
 # 1. Define and Ensure Directory (Module Level - Runs Once at Import)
-# Re-anchored to backend/data/facts (two levels up from app/utils)
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data", "facts"))
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def _sanitize_filename(session_id: str) -> str:
     """Sanitize session_id to ensure it's a valid filename."""
-    # Remove invalid characters for filenames
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", session_id)
-    # Truncate to a reasonable length (e.g., 100 chars)
     return sanitized[:100]
 
 def _sync_append_worker(filepath: str, payload_line: str):
@@ -37,7 +34,7 @@ async def _process_isolated_ledger_write(
     """
     BACKGROUND ASYNC CORE: Data Preparation
     Uses Python 3.12+ compliant timezone-aware datetime for both filename and JSON.
-    Now accepts an optional `facts` dict to store alongside the summary.
+    Accepts an optional `facts` dict to store alongside the summary.
     """
     try:
         if not session_id or not isinstance(session_id, str):
@@ -53,10 +50,17 @@ async def _process_isolated_ledger_write(
 
         # 2. Unified Timezone Logic (UTC Everywhere)
         now = datetime.now(timezone.utc)
-        dd = now.strftime("%d")
+        
+        # --- FIX: Changed format to YYYYMMDD_HHMM for perfect alphabetical sorting ---
+        # --- FIX: Renamed 'min' to 'minute' to avoid overwriting Python's built-in min() ---
+        yyyy = now.strftime("%Y")
         mm = now.strftime("%m")
+        dd = now.strftime("%d")
+        hh = now.strftime("%H")
+        minute = now.strftime("%M")
 
-        filename = f"{dd}_{mm}_{sanitized_session_id}.jsonl"
+        # New chronological filename format: YYYYMMDD_HHMM_session.jsonl
+        filename = f"{yyyy}{mm}{dd}_{hh}{minute}_{sanitized_session_id}.jsonl"
         filepath = os.path.join(DATA_DIR, filename)
 
         # 3. Consolidated Formatting
@@ -95,7 +99,7 @@ def trigger_on_demand_save(
 ):
     """
     LAYER 1 ISOLATION: Event Loop Detachment
-    Now accepts an optional `facts` dict to store alongside the summary.
+    Accepts an optional `facts` dict to store alongside the summary.
     """
     if not session_id:
         return

@@ -1,0 +1,1 @@
+MCP_NAME = "Memory MCP"

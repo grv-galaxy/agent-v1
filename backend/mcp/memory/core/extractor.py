@@ -219,7 +219,7 @@ import logging
 import re
 from typing import Iterable, Any
 
-from .deduplicator import CandidateTriple
+from .deduplicator import CandidateTriple, normalize_relation
 from . import importance
 
 logger = logging.getLogger("ltm.extractor")
@@ -320,8 +320,11 @@ def parse_facts(lines: Iterable[str | dict]) -> list[CandidateTriple]:
             if subject_str.lower() in USER_ALIASES:
                 subject_str = "User"
 
-            # Step 3: Sanitize relation vocabulary to lowercase snake_case
+            # Step 3: Sanitize relation vocabulary to lowercase snake_case,
+            # then normalize to canonical form so structural dedup hash matches
+            # across synonymous phrasings (e.g. "lives" → "lives_in").
             relation_str = sanitize_relation(relation_str)
+            relation_str = normalize_relation(relation_str)
 
             # Step 4: Extract and clean metadata metrics with defaults
             try:

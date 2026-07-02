@@ -1,0 +1,3 @@
+2026-07-02T21:22:29 [INFO] ltm.handlers: Queue Fetcher found file 30062026_0923_session_1782811372107_945voz4ca.jsonl with 1 facts.
+2026-07-02T21:22:29 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['bd5ce34a20762d3c60230161', 'e89114cdb8ae384caa73c672', 'ce1318bcbccc5cdacd06d3de', 'd7f0e9a3c5583861d2426511', '4f6bc65318fdc83c9e717d59']
+2026-07-02T21:22:29 [INFO] ltm.handlers: Successfully archived processed queue file: 30062026_0923_session_1782811372107_945voz4ca.jsonl

@@ -52,6 +52,9 @@ from core import engine
 from core import retrieval
 from core import markdown
 from core import maintenance
+from core import fetcher
+
+config.setup_logging()
 
 # ----------------------------------------------------------------------
 # 3. CROSS-PLATFORM SYSTEM LOCKING ABSTRACTION (Windows & Unix support)
@@ -157,6 +160,30 @@ def execute_pipeline_with_lock(
                 return None
 
             logger.info(f"Ingesting batch window: {len(raw_facts_batch)} structured log entries found ({current_offset} -> {final_offset} bytes).")
+        else:
+            # Fallback queue-based fetcher logic: read the latest session file chronologically
+            raw_lines, latest_file = fetcher.read_latest_facts()
+            if not latest_file:
+                logger.info("No queue session files found in facts directory.")
+                return None
+            
+            raw_facts_batch = []
+            for line in raw_lines:
+                if line.strip():
+                    try:
+                        raw_facts_batch.append(json.loads(line.strip()))
+                    except json.JSONDecodeError as e:
+                        logger.warning(f"Failed to parse json line from {latest_file.name}: {e}")
+            
+            if not raw_facts_batch:
+                # If file is empty or invalid, let's archive it so it doesn't block the queue
+                logger.warning(f"Queue file {latest_file.name} contains no valid JSON facts. Archiving to clear queue.")
+                fetcher.archive_processed_file(latest_file)
+                return None
+
+            # Temporarily set this so we know which file to archive on success
+            facts_jsonl_path = latest_file
+            logger.info(f"Queue Fetcher found file {latest_file.name} with {len(raw_facts_batch)} facts.")
 
         # Step 3: Establish connection context handles via storage API
         conn = storage.connect(db_path)
@@ -179,10 +206,17 @@ def execute_pipeline_with_lock(
                 dirty_set = markdown.classify_dirty_sections(conn, summary.dirty_triple_ids)
                 markdown.project_markdown_incremental(conn, dirty_set)
 
-            # Step 6: Atomic Cursor Advance Protection
+            # Step 6: Atomic Cursor Advance Protection OR Queue Archive
             if facts_jsonl_path is not None and cursor_path is not None and final_offset is not None:
                 cursor_path.write_text(str(final_offset), encoding="utf-8")
                 logger.info(f"Cursor advanced successfully to absolute checkpoint tracking offset: {final_offset}B.")
+            elif facts_jsonl_path is not None and cursor_path is None:
+                # Archive the processed session file to keep the input queue directory clean
+                archive_success = fetcher.archive_processed_file(facts_jsonl_path)
+                if archive_success:
+                    logger.info(f"Successfully archived processed queue file: {facts_jsonl_path.name}")
+                else:
+                    logger.error(f"Failed to archive processed queue file: {facts_jsonl_path.name}")
             
             return summary
 

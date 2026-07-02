@@ -50,6 +50,7 @@ LOGS_DIR = DATA_DIR / "logs" / "ltm"
 USER_DIR = DATA_DIR / "user"
 TASK_DIR = DATA_DIR / "task"
 ARCHIVE_DIR = DATA_DIR / "archieve"
+TASK_ARCHIVE_DIR = ARCHIVE_DIR / "tasks"
 
 LOCK_FILE = LOCKS_DIR / "memory_manager.lock"
 CURSOR_FILE = CURSORS_DIR / "facts_cursor.json"
@@ -63,11 +64,48 @@ CURSOR_PATH = CURSOR_FILE
 def ensure_data_dirs() -> None:
     """Idempotent. Called once at server startup (server.py) before
     anything tries to read/write a lock, cursor, log, or markdown file."""
-    for d in (DATA_DIR, LOCKS_DIR, CURSORS_DIR, LOGS_DIR, USER_DIR, TASK_DIR, ARCHIVE_DIR, FACTS_DIR):
+    for d in (DATA_DIR, LOCKS_DIR, CURSORS_DIR, LOGS_DIR, USER_DIR, TASK_DIR, ARCHIVE_DIR, FACTS_DIR, TASK_ARCHIVE_DIR):
         d.mkdir(parents=True, exist_ok=True)
 
 
 ensure_data_dirs()
+
+
+def setup_logging() -> None:
+    """Attach a rotating file handler to the ltm.* logger hierarchy so
+    every pipeline run writes structured logs to backend/data/logs/ltm/ltm.log.
+    Safe to call multiple times — idempotent."""
+    import logging
+    import logging.handlers
+
+    ltm_logger = logging.getLogger("ltm")
+    if any(isinstance(h, logging.handlers.RotatingFileHandler) for h in ltm_logger.handlers):
+        return  # already installed
+
+    log_file = LOGS_DIR / "ltm.log"
+    handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=5 * 1024 * 1024,  # 5 MB per file
+        backupCount=5,
+        encoding="utf-8",
+    )
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%dT%H:%M:%S",
+    )
+    handler.setFormatter(formatter)
+
+    ltm_logger.setLevel(logging.DEBUG)
+    ltm_logger.addHandler(handler)
+
+    # Also emit to stderr so server console shows logs
+    if not any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+               for h in ltm_logger.handlers):
+        console = logging.StreamHandler()
+        console.setLevel(logging.INFO)
+        console.setFormatter(formatter)
+        ltm_logger.addHandler(console)
 
 
 # ----------------------------------------------------------------------

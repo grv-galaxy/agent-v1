@@ -23,7 +23,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from memory import config
+try:
+    from memory import config
+except ImportError:
+    import config  # type: ignore[no-redef]
 from . import storage
 from .models import DirtySection, DirtySet, SectionKind
 

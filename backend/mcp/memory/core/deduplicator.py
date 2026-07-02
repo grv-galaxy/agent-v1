@@ -39,8 +39,8 @@ from typing import Callable
 
 import numpy as np
 
-import storage
-import vector_store
+from . import storage
+from . import vector_store
 
 # Cosine similarity threshold for "same fact" — ltm_doc.md §8b
 SEMANTIC_MATCH_THRESHOLD = 0.85
@@ -48,6 +48,14 @@ SEMANTIC_MATCH_THRESHOLD = 0.85
 # since it's comparing across subjects rather than within one.
 CROSS_NAMESPACE_THRESHOLD = 0.92
 
+
+RELATION_MAP = {
+    "loves": "likes",
+    "enjoys": "likes",
+    "adores": "likes",
+    "resides in": "lives in",
+    "stays in": "lives in"
+}
 
 class DedupOutcome(str, Enum):
     REINFORCE = "reinforce"
@@ -63,7 +71,7 @@ class CandidateTriple:
     subject: str
     relation: str
     object: str
-    raw_text: str
+    # raw_text: str
     layer: str = "factual"
     importance: int = 50
     confidence: float = 0.5
@@ -185,3 +193,11 @@ def dedup_batch(
         )
 
     return DedupBatchResult(results=results)
+
+def normalize_relation(relation: str) -> str:
+    """
+    Normalizes a relational string to its canonical equivalent using a 
+    dictionary mapping look-up (§8d). Returns lowered, stripped clean string.
+    """
+    cleaned = relation.strip().lower()
+    return RELATION_MAP.get(cleaned, cleaned)

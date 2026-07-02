@@ -118,10 +118,28 @@ class TripleRow:
 # ----------------------------------------------------------------------
 
 def connect(db_path: str | Path) -> sqlite3.Connection:
-    """Open a connection with the schema applied. Safe to call every run —
-    CREATE TABLE/INDEX IF NOT EXISTS makes this idempotent."""
+    """Open a connection with the schema applied AND the sqlite-vec extension
+    loaded. Safe to call every run — CREATE TABLE/INDEX IF NOT EXISTS makes
+    this idempotent.
+
+    Extension loading lives HERE (not in server.py) so that ANY code path
+    that calls storage.connect() — test_client.py, handlers.py, a future
+    script — gets a fully-usable connection without depending on server.py
+    having run first and monkey-patched sqlite3.connect globally.
+    """
+    import sqlite_vec
+
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
+
+    # Grant just this connection permission to load extensions, load
+    # vec0, then immediately revoke the permission again. Scoped to this
+    # one connection object — does NOT touch sqlite3.connect globally,
+    # so nothing else in the process is affected.
+    conn.enable_load_extension(True)
+    sqlite_vec.load(conn)
+    conn.enable_load_extension(False)
+
     conn.executescript(SCHEMA_SQL)
     return conn
 

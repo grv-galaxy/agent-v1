@@ -26,46 +26,93 @@ The structure is designed so that new features can be added without creating tig
 
 ```text
 .
+agent-v1/
 ├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── routes/
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── chat.py
+│   │   │   │   ├── memory.py
+│   │   │   │   └── __init__.py
+│   │   │   ├── __init__.py
+│   │   │   └── __pycache__/
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   ├── prompts.py
+│   │   │   └── __init__.py
+│   │   ├── providers/
+│   │   │   ├── ai21.py
+│   │   │   ├── anthropic.py
+│   │   │   ├── base.py
+│   │   │   ├── cerebras.py
+│   │   │   ├── cohere.py
+│   │   │   ├── deepinfra.py
+│   │   │   ├── deepseek.py
+│   │   │   ├── factory.py
+│   │   │   ├── fireworksai.py
+│   │   │   ├── gemini.py
+│   │   │   ├── groq.py
+│   │   │   ├── huggingface.py
+│   │   │   ├── mistral.py
+│   │   │   ├── nvidianim.py
+│   │   │   ├── openai.py
+│   │   │   ├── openrouter.py
+│   │   │   ├── togetherai.py
+│   │   │   └── __init__.py
+│   │   ├── services/
+│   │   │   ├── compression.py
+│   │   │   ├── ltm_client.py
+│   │   │   ├── memory_trigger.py
+│   │   │   ├── telemetry.py
+│   │   │   ├── test_trigger_local.py
+│   │   │   └── __init__.py
+│   │   ├── utils/
+│   │   │   ├── storage.py
+│   │   │   ├── token.py
+│   │   │   └── __init__.py
+│   │   ├── main.py
+│   │   ├── __init__.py
+│   │   └── __pycache__/
+│   ├── data/
+│   │   ├── archieve/           <-- [Multiple session files condensed]
+│   │   ├── cursors/
+│   │   ├── facts/
+│   │   ├── locks/
+│   │   ├── logs/
+│   │   ├── task/
+│   │   └── user/
+│   ├── mcp/
+│   │   ├── memory/
+│   │   │   ├── backend/
+│   │   │   │   └── data/
+│   │   │   ├── core/
+│   │   │   ├── model/
+│   │   │   ├── config.py
+│   │   │   ├── handlers.py
+│   │   │   ├── main.py
+│   │   │   ├── pyproject.toml
+│   │   │   ├── README.md
+│   │   │   ├── server.py
+│   │   │   ├── test_client.py
+│   │   │   ├── uv.lock
+│   │   │   └── verify_import.py
+│   │   ├── search/
+│   │   └── shared/
+│   ├── tests/
 │   ├── .env
 │   ├── main.py
-│   └── app/
-│       ├── __init__.py
-│       ├── main.py
-│       ├── api/
-│       ├── core/
-│       ├── providers/
-│       ├── services/
-│       └── utils/
-├── mcp/
-│   ├── shared/
-│   │   ├── base.py
-│   │   ├── registry.py
-│   │   └── utils.py
-│   └── memory/
-│       ├── pyproject.toml
-│       ├── server.py
-│       ├── handlers.py
-│       ├── tools.py
-|       ├── test_client.py
-│       ├── config.py
-│       └── core/
-│           ├── engine.py
-│           ├── extractor.py
-│           ├── deduplicator.py
-│           ├── contradiction.py
-│           ├── confidence.py
-│           ├── importance.py
-│           ├── storage.py
-│           ├── vector_store.py
-│           ├── markdown.py
-│           ├── retrieval.py
-│           ├── models.py
-│           └── schemas.py
-├── data/
-├── tests/
-├── docker-compose.yml
-└── Dockerfile
+│   └── __pycache__/
+└── docs/
+    ├── backend_folder.md
+    ├── context-slider-turbo-balanced-prec...
+    ├── ltm_doc.md
+    ├── memory_audit_report.md
+    ├── memory_layer_architecture_audit.md
+    ├── system_architecture_spec_working_l...
+    ├── working_memory_implementation_plan...
+    ├── working_memory_layer.pdf
+    └── working_memory_v2_fixes.pdf
 ```
 
 ---

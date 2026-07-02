@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import storage
+from . import storage
 
 # ----------------------------------------------------------------------
 # Importance bands (ltm_doc.md §3 — LLM-assigned prior at extraction time)

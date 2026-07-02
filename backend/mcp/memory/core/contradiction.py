@@ -27,9 +27,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import storage
-import confidence
-from deduplicator import CandidateTriple, DedupOutcome, DedupResult
+from . import storage
+from . import confidence
+from .deduplicator import CandidateTriple, DedupOutcome, DedupResult
 
 
 @dataclass

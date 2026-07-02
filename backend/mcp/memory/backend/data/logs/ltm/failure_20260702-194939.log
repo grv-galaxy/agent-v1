@@ -1,0 +1,8 @@
+=== LTM PIPELINE FAILURE LOG ===
+Timestamp: 2026-07-02 19:49:39
+Attempt Count: 2
+Exception Type: TypeError
+Exception Message: CandidateTriple.__init__() got an unexpected keyword argument 'message_ids'
+
+=== Stack Trace ===
+NoneType: None

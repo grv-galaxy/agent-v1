@@ -28,8 +28,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-import storage
-from deduplicator import DedupOutcome, DedupResult
+from . import storage
+from .deduplicator import DedupOutcome, DedupResult
 
 # Tunable constants (ltm_doc.md §8e, §14, §16)
 REINFORCE_RATE = 0.2

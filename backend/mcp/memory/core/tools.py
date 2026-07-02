@@ -61,12 +61,12 @@ def register_ltm_tools(mcp: FastMCP):
         try:
             summary = handlers.execute_pipeline_with_lock(
                 db_path=DB_PATH,
-                facts_jsonl_path=FACTS_JSONL,
-                cursor_path=CURSOR_PATH,
+                facts_jsonl_path=None,
+                cursor_path=None,
                 lock_path=LOCK_PATH,
                 embed_fn=runtime_embed_fn
             )
-            if summary is None:
+            if summary is None or (summary.inserted == 0 and summary.reinforced == 0 and summary.contradicted == 0):
                 return "Sync execution completed: No new fact entries found to ingest or file is missing."
             return f"Sync successful! Inserted: {summary.inserted}, Reinforced: {summary.reinforced}, Contradicted: {summary.contradicted}."
         except handlers.FileLockError as e:

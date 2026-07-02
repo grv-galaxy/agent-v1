@@ -101,8 +101,8 @@ class FileLockError(Exception):
 
 def execute_pipeline_with_lock(
     db_path: Path,
-    facts_jsonl_path: Path,
-    cursor_path: Path,
+    facts_jsonl_path: Path | None,
+    cursor_path: Path | None,
     lock_path: Path,
     embed_fn: Callable[[list[str]], np.ndarray]
 ) -> engine.PipelineSummary | None:
@@ -120,39 +120,43 @@ def execute_pipeline_with_lock(
         raise FileLockError("Another instance of the memory engine is currently processing a batch.")
 
     try:
-        # Step 1: Read the verified cursor pointer offset
-        current_offset = 0
-        if cursor_path.exists():
-            try:
-                current_offset = int(cursor_path.read_text(encoding="utf-8").strip())
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Malformed cursor file found, resetting tracking pointer to 0: {e}")
+        raw_facts_batch = None
+        final_offset = None
 
-        # Step 2: Read only the freshly appended segments from facts.jsonl
-        if not facts_jsonl_path.exists():
-            logger.info("No facts.jsonl file discovered. Pipeline run completed with empty summary.")
-            return None
+        if facts_jsonl_path is not None:
+            # Step 1: Read the verified cursor pointer offset
+            current_offset = 0
+            if cursor_path and cursor_path.exists():
+                try:
+                    current_offset = int(cursor_path.read_text(encoding="utf-8").strip())
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Malformed cursor file found, resetting tracking pointer to 0: {e}")
 
-        file_size = facts_jsonl_path.stat().st_size
-        if current_offset >= file_size:
-            logger.info(f"No new entries detected since last checkpoint pointer (Offset: {current_offset}B).")
-            return None
+            # Step 2: Read only the freshly appended segments from facts.jsonl
+            if not facts_jsonl_path.exists():
+                logger.info(f"No facts file discovered at {facts_jsonl_path}. Pipeline run completed with empty summary.")
+                return None
 
-        raw_facts_batch = []
-        with open(facts_jsonl_path, "r", encoding="utf-8") as f:
-            f.seek(current_offset)
-            for line in f:
-                if line.strip():
-                    try:
-                        raw_facts_batch.append(json.loads(line.strip()))
-                    except json.JSONDecodeError:
-                        pass
-            final_offset = f.tell()
+            file_size = facts_jsonl_path.stat().st_size
+            if current_offset >= file_size:
+                logger.info(f"No new entries detected since last checkpoint pointer (Offset: {current_offset}B).")
+                return None
 
-        if not raw_facts_batch:
-            return None
+            raw_facts_batch = []
+            with open(facts_jsonl_path, "r", encoding="utf-8") as f:
+                f.seek(current_offset)
+                for line in f:
+                    if line.strip():
+                        try:
+                            raw_facts_batch.append(json.loads(line.strip()))
+                        except json.JSONDecodeError:
+                            pass
+                final_offset = f.tell()
 
-        logger.info(f"Ingesting batch window: {len(raw_facts_batch)} structured log entries found ({current_offset} -> {final_offset} bytes).")
+            if not raw_facts_batch:
+                return None
+
+            logger.info(f"Ingesting batch window: {len(raw_facts_batch)} structured log entries found ({current_offset} -> {final_offset} bytes).")
 
         # Step 3: Establish connection context handles via storage API
         conn = storage.connect(db_path)
@@ -170,14 +174,15 @@ def execute_pipeline_with_lock(
             )
 
             # Step 5: Render markdown projection using dynamic incremental checks
-            if summary.dirty_triple_ids:
+            if summary and summary.dirty_triple_ids:
                 logger.info(f"Projecting dynamic changes into markdown files: {summary.dirty_triple_ids}")
                 dirty_set = markdown.classify_dirty_sections(conn, summary.dirty_triple_ids)
                 markdown.project_markdown_incremental(conn, dirty_set)
 
             # Step 6: Atomic Cursor Advance Protection
-            cursor_path.write_text(str(final_offset), encoding="utf-8")
-            logger.info(f"Cursor advanced successfully to absolute checkpoint tracking offset: {final_offset}B.")
+            if facts_jsonl_path is not None and cursor_path is not None and final_offset is not None:
+                cursor_path.write_text(str(final_offset), encoding="utf-8")
+                logger.info(f"Cursor advanced successfully to absolute checkpoint tracking offset: {final_offset}B.")
             
             return summary
 

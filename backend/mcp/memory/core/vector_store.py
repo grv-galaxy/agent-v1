@@ -183,6 +183,14 @@ class EmbeddingCache:
         self.matrix_normed = self._normalize(matrix) if matrix.size else (
             np.empty((0, dim), dtype=np.float32)
         )
+        if ids:
+            rows = conn.execute("SELECT id, subject FROM triples").fetchall()
+            id_to_subject = {r[0]: r[1] for r in rows}
+            self._subjects = np.array(
+                [id_to_subject.get(i, "").lower() for i in self.ids], dtype="<U200"
+            )
+        else:
+            self._subjects = np.array([], dtype="<U200")
 
     @staticmethod
     def _normalize(matrix: np.ndarray) -> np.ndarray:

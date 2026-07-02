@@ -101,8 +101,9 @@ def build_reinforcement_updates(
 
         new_confidence = reinforce(existing.confidence)
         variants = existing.raw_text_variants
-        if r.candidate.raw_text not in variants:
-            variants = variants + [r.candidate.raw_text]
+        raw_text = getattr(r.candidate, 'raw_text', f"{r.candidate.subject} {r.candidate.relation} {r.candidate.object}")
+        if raw_text not in variants:
+            variants = variants + [raw_text]
 
         updates.append(
             (r.matched_id, new_confidence, json.dumps(variants), now)

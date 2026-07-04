@@ -97,9 +97,10 @@ async def stream_chat_response(req: ChatRequest):
         # Inject the new formal system prompts
         if safe_rolling_summary:
             raw_buffer_size = req.memory_raw_buffer or 10
-            final_system_prompt = base_system_prompt + ONGOING_CONVERSATION_SYSTEM_PROMPT.format(
-                rolling_summary=safe_rolling_summary,
-                raw_buffer_size=raw_buffer_size
+            final_system_prompt = base_system_prompt + ONGOING_CONVERSATION_SYSTEM_PROMPT.replace(
+                "{rolling_summary}", safe_rolling_summary
+            ).replace(
+                "{raw_buffer_size}", str(raw_buffer_size)
             )
         else:
             final_system_prompt = base_system_prompt + FIRST_TURN_SYSTEM_PROMPT

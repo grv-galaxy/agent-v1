@@ -88,12 +88,18 @@ def parse_facts(lines: Iterable[str | dict]) -> list[CandidateTriple]:
         episodic_list = facts_bundle.get("episodic_events", [])
         factual_list = facts_bundle.get("factual_traits", [])
         
-        # Merge both categories into a single processing stream
+        # Merge both categories into a single processing stream, marking origin
         raw_triples: list[dict[str, Any]] = []
         if isinstance(episodic_list, list):
-            raw_triples.extend(episodic_list)
+            for t in episodic_list:
+                if isinstance(t, dict): 
+                    t['_internal_layer'] = 'episodic'
+                raw_triples.append(t)
         if isinstance(factual_list, list):
-            raw_triples.extend(factual_list)
+            for t in factual_list:
+                if isinstance(t, dict): 
+                    t['_internal_layer'] = 'factual'
+                raw_triples.append(t)
             
         # 5. Process and construct individual CandidateTriple objects
         for triple_data in raw_triples:
@@ -120,6 +126,8 @@ def parse_facts(lines: Iterable[str | dict]) -> list[CandidateTriple]:
             # Step 2: Canonicalize subjects matching user context to "User"
             if subject_str.lower() in USER_ALIASES:
                 subject_str = "User"
+            else:
+                continue  # Drop items where the subject is not the user
 
             # Step 3: Sanitize relation vocabulary to lowercase snake_case,
             # then normalize to canonical form so structural dedup hash matches
@@ -142,12 +150,15 @@ def parse_facts(lines: Iterable[str | dict]) -> list[CandidateTriple]:
             importance_score = importance.clamp_importance(raw_importance)
             confidence_score = max(0.0, min(1.0, confidence))
 
+            # Determine the layer from our internal tag (or fallback to event_type)
+            layer = triple_data.get("_internal_layer", event_type)
+
             # Generate the unified CandidateTriple packaging layer
             candidate = CandidateTriple(
                 subject=subject_str,
                 relation=relation_str,
                 object=obj_str,
-                layer=event_type,
+                layer=layer,
                 importance=importance_score,
                 confidence=confidence_score,
                 conversation_id=conversation_id,

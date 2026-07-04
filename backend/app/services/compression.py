@@ -5,6 +5,31 @@ from app.utils.token import count_tokens, cap_summary_by_tokens
 from app.utils.storage import trigger_on_demand_save
 from app.core.prompts import FIRST_EPOCH_PROMPT, ANCHORED_COMPRESSION_PROMPT, GROUNDING_PROMPT
 
+def fix_unescaped_newlines(json_str: str) -> str:
+    #\"\"\"Fixes unescaped newlines, carriage returns, and tabs inside JSON string literals.\"\"\"
+    in_string = False
+    escaped = False
+    result = []
+    for char in json_str:
+        if char == '"' and not escaped:
+            in_string = not in_string
+            result.append(char)
+        elif char == '\\' and not escaped:
+            escaped = True
+            result.append(char)
+        else:
+            if char == '\n' and in_string:
+                result.append('\\n')
+            elif char == '\r' and in_string:
+                result.append('\\r')
+            elif char == '\t' and in_string:
+                result.append('\\t')
+            else:
+                result.append(char)
+            escaped = False
+    return ''.join(result)
+
+
 def extract_json_from_output(output: str, marker: str = None) -> dict:
     """
     Robustly extracts a JSON object from the LLM output string.
@@ -33,8 +58,11 @@ def extract_json_from_output(output: str, marker: str = None) -> dict:
     json_str = re.sub(r'^```(?:json)?\s*', '', json_str)
     json_str = re.sub(r'\s*```$', '', json_str)
 
+    # Automatically fix unescaped newlines inside string literals
+    json_str = fix_unescaped_newlines(json_str)
+
     try:
-        return json.loads(json_str)
+        return json.loads(json_str, strict=False)
     except json.JSONDecodeError as e:
         print(f"[Warning] JSON parsing failed: {e}. Raw content: {json_str[:200]}...")
         return None
@@ -89,13 +117,18 @@ async def compress_chunk(
                 facts = extract_json_from_output(parts[1])
 
         # --- Step 5: Save and return ---
-        trigger_on_demand_save(
-            session_id=session_id,
-            epoch=compression_epoch,
-            event_type="compression_pass",
-            rolling_summary=new_summary,
-            facts=facts,
-        )
+        if not new_summary or len(new_summary.strip()) < 10:
+            print("[Warning] new_summary is empty or too short. Falling back to existing_summary.")
+            new_summary = existing_summary or ""
+
+        if new_summary:
+            trigger_on_demand_save(
+                session_id=session_id,
+                epoch=compression_epoch,
+                event_type="compression_pass",
+                rolling_summary=new_summary,
+                facts=facts,
+            )
         return cap_summary_by_tokens(new_summary, max_summary_tokens)
 
     except Exception as e:
@@ -163,16 +196,21 @@ async def grounding_pass(
                 facts = extract_json_from_output(parts[1])
 
         # --- Save grounding pass ---
-        try:
-            trigger_on_demand_save(
-                session_id=session_id,
-                epoch=compression_epoch,
-                event_type="grounding_pass",
-                rolling_summary=grounded_summary,
-                facts=facts,
-            )
-        except Exception as e:
-            print(f"[Error] Failed to save grounding pass: {e}")
+        if not grounded_summary or len(grounded_summary.strip()) < 10:
+            print("[Warning] grounded_summary is empty or too short. Falling back to current_summary.")
+            grounded_summary = current_summary or ""
+
+        if grounded_summary:
+            try:
+                trigger_on_demand_save(
+                    session_id=session_id,
+                    epoch=compression_epoch,
+                    event_type="grounding_pass",
+                    rolling_summary=grounded_summary,
+                    facts=facts,
+                )
+            except Exception as e:
+                print(f"[Error] Failed to save grounding pass: {e}")
 
         return cap_summary_by_tokens(grounded_summary, max_summary_tokens)
 

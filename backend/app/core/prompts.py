@@ -17,9 +17,9 @@ It has TWO purposes:
    - A structured Long-Term Memory (LTM) extraction.
    - Only information with lasting value should be stored here.
 
-Return ONLY valid JSON.
+Return ONLY a single valid JSON object. Ensure all newlines within string values (like the "summary" string) are properly escaped as "\n" to maintain strict JSON compliance. Do NOT output unescaped literal newlines inside string properties.
 
-Do NOT output markdown.
+Do NOT output markdown outside the JSON.
 
 Do NOT wrap JSON inside code fences.
 
@@ -31,54 +31,75 @@ OBJECTIVE 1 — SUMMARY (SHORT-TERM MEMORY)
 
 The "summary" is NOT a transcript.
 
-The "summary" is NOT a chronological retelling of every message.
+The "summary" is NOT a chronological retelling of every message, nor is it a single flat paragraph.
 
-Instead, it is a detailed state-preserving narrative whose purpose is to allow
-another assistant to continue the conversation naturally even if the original
-conversation history is no longer available.
+Instead, it is a highly structured, dense, and clean markdown block that preserves the CURRENT STATE of the conversation.
 
 Assume the future assistant will receive ONLY:
 • this summary
 • future raw conversation messages
 
-The summary should preserve the CURRENT STATE of the conversation.
+You MUST format the "summary" string inside the JSON using the exact markdown structure below. Only fill in the sub-bullets with actual content from the conversation. Do NOT write generic placeholder sentences for categories that have no information (simply omit empty bullet items, but keep the headers).
 
-Include, whenever applicable:
-• The user's primary goal(s)
-• Current discussion topic(s)
-• Overall context
-• Important decisions already made
-• Conclusions reached
-• Work already completed
-• Current progress
-• Active tasks
-• Open questions
-• Outstanding problems
-• Important assumptions
-• Constraints or requirements
-• Assistant commitments or promises
-• User preferences that are relevant to THIS conversation
-• Important relationships between different discussion topics
-• Any other information necessary for seamless continuation
+CRITICAL RULES FOR THE SUMMARY STRING:
+- You MUST output exactly ONE block of the summary.
+- NEVER repeat the headers. Do NOT append multiple blocks.
+- The summary block MUST be the value of the `summary` string inside the JSON output. Do NOT output raw markdown outside the JSON.
 
-The summary should be sufficiently detailed to reconstruct the conversation
-state without needing previous messages.
+REQUIRED SUMMARY FORMAT:
+### 👤 USER PROFILE
+- **Name**: [Actual name or nickname if stated, otherwise "Unknown"]
+- **Preferences**: [List stable/long-term preferences relevant to the conversation]
+- **Key Attributes**: [List location, occupation, or identity facts]
+
+### 🎯 SESSION STATE
+- **Active Goal**: [Primary objective of the current conversation]
+- **Current Topic**: [Specific subject being discussed right now]
+- **Completed Work**: [Key deliverables, code written, or decisions finalized]
+- **Progress**: [Summary of the conversation flow so far]
+
+### 📋 NEXT STEPS
+- **Pending Tasks**: [Unfinished actions or commitments by the user/assistant]
+- **Open Questions**: [Unresolved questions or topics to follow up on]
+
+CONCISENESS & FORMULATING RULES:
+- Use short, punchy fragments (NOT full conversational sentences).
+- Do NOT repeat the same topic name or keywords in multiple fields.
+- Deduplicate items; never repeat information.
+- Format lists cleanly: do NOT leave trailing commas or incomplete punctuation.
+- Keep sub-bullet lists concise, using simple words.
+
+GOOD SUMMARY EXAMPLE (Note how the markdown is inside the JSON "summary" string, with newlines escaped as \\n):
+{{
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav (Nickname: Jarvis)\\n- **Preferences**: Blue, dark mode\\n- **Key Attributes**: Lives in New York; loves swimming and travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Test available programming/search tools\\n- **Current Topic**: Tool capabilities overview\\n- **Completed Work**: Explained Python and Browser capabilities\\n- **Progress**: Introduced self and aligned on tool list\\n\\n### 📋 NEXT STEPS\\n- **Pending Tasks**: Execute user's first tool request\\n- **Open Questions**: Which tool does the user want to try first?",
+  "facts_json": {{
+    "episodic_events": [],
+    "factual_traits": [],
+    "semantic_concepts": [],
+    "entities": {{}}
+  }}
+}}
+
+BAD SUMMARY EXAMPLE (Avoid this structure):
+{{
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav\\n- **Preferences**: Gaurav prefers the color blue, and Gaurav prefers dark mode, \\n- **Key Attributes**: Lives in New York, loves to swim, loves travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Assist Gaurav with using the Jarvis tools\\n- **Current Topic**: Discussing the Jarvis tools\\n- **Completed Work**: Gave the Jarvis tools to Gaurav and discussed Jarvis tools\\n- **Progress**: Gaurav has introduced himself and wants to use Jarvis tools"
+}}
+
+CRITICAL — IDENTITY AND PERSONAL FACTS:
+If the user reveals their name, nickname, location, occupation, age, relationships,
+or any stable personal attribute, this information MUST ALWAYS be explicitly preserved 
+in the "USER PROFILE" section of the summary — even if it was shared during a greeting or introduction.
+These facts are essential for conversational continuity.
+Extracting such facts into `facts_json` does NOT mean removing them from the summary.
+Identity facts must appear in BOTH the summary AND `facts_json`.
 
 Do NOT include:
-- Greetings.
-- Conversational introductions that contain no meaningful information.
-- Pleasantries or social niceties.
-- Acknowledgements or conversational filler.
-- Repeated information.
+- Greetings or pleasantries that contain NO factual information.
+- Pure acknowledgements or conversational filler (e.g., "okay", "got it", "thanks").
+- Repeated information already present in the summary.
 - Unnecessary chronological narration.
 - Information that has no future conversational value.
-
-Exception:
-If an introduction establishes important conversational context, persistent user information, or information necessary for continuing the conversation, preserve that information appropriately in the summary and, if it has lasting value, extract it into `facts_json`.
-
-Write naturally as one coherent narrative.
-
-Do NOT artificially shorten the summary.
+- Empty template fields or placeholder strings like "[no information]". Just omit bullet items if they are empty.
 
 ===============================================================================
 OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
@@ -206,8 +227,9 @@ Good:
 For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
-Always use "User" as the canonical subject for the person you are speaking with, 
-even if they introduce themselves by name. Do not use their name as the subject.
+CRITICAL RULE — CANONICAL SUBJECT:
+Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.
@@ -280,9 +302,9 @@ Your responsibilities are equally important:
 
 2. Extract valuable Long-Term Memory (LTM) candidates ONLY from the NEW CONVERSATION CHUNK.
 
-Return ONLY a single valid JSON object.
+Return ONLY a single valid JSON object. Ensure all newlines within string values (like the "summary" string) are properly escaped as "\n" to maintain strict JSON compliance. Do NOT output unescaped literal newlines inside string properties.
 
-Do NOT output markdown.
+Do NOT output markdown outside the JSON.
 
 Do NOT wrap JSON inside code fences.
 
@@ -327,58 +349,75 @@ Do NOT store information that is only useful inside the current conversation.
 OBJECTIVE 1 — UPDATE THE ROLLING SUMMARY
 ===============================================================================
 
-Treat the EXISTING SUMMARY as the authoritative conversational state.
+Treat the EXISTING SUMMARY as the authoritative conversational state. It is formatted in structured markdown.
 
-Do NOT rewrite it from scratch.
+Do NOT rewrite the summary structure. Maintain the exact same headers:
+- `### 👤 USER PROFILE`
+- `### 🎯 SESSION STATE`
+- `### 📋 NEXT STEPS`
 
-Instead, intelligently merge the NEW CONVERSATION CHUNK into the existing
-summary while preserving important context.
+Intelligently merge the NEW CONVERSATION CHUNK into the existing summary. Update sub-bullets under these headers, preserving important context while replacing outdated or contradicted information with fresher context from the new chunk.
 
-The updated summary should represent the CURRENT STATE of the conversation after
-processing the new messages.
+CRITICAL RULES FOR THE SUMMARY STRING:
+- You MUST output exactly ONE block of the summary.
+- NEVER repeat the headers. Do NOT append a new summary below the old one.
+- You MUST MERGE the EXISTING SUMMARY and the NEW CONVERSATION CHUNK into a SINGLE, unified markdown string.
+- This unified markdown string MUST be the value of the `summary` field in your JSON output.
 
-Preserve information unless:
-• it is explicitly contradicted,
-• it has become obsolete because newer information replaces it,
-• or it is no longer useful for continuing the conversation.
+REQUIRED SUMMARY FORMAT:
+### 👤 USER PROFILE
+- **Name**: [Keep or update user's name/nickname]
+- **Preferences**: [Keep or update stable user preferences]
+- **Key Attributes**: [Keep or update location, occupation, or key identity facts]
 
-When updating the summary, preserve and update whenever applicable:
-• user goals
-• current discussion topics
-• overall context
-• important decisions
-• conclusions reached
-• completed work
-• current progress
-• active tasks
-• unresolved questions
-• ongoing problems
-• constraints
-• assumptions
-• assistant commitments
-• conversation-relevant user preferences
-• important relationships between discussion topics
-• any information required for seamless continuation
+### 🎯 SESSION STATE
+- **Active Goal**: [Current conversation goal, updated if it changed]
+- **Current Topic**: [Topic under discussion in the new chunk]
+- **Completed Work**: [Accumulate any new completed deliverables or decisions]
+- **Progress**: [Merge new events and progress with historical progress]
 
-Merge new information naturally into the existing narrative.
+### 📋 NEXT STEPS
+- **Pending Tasks**: [Unfinished actions or commitments by the user/assistant]
+- **Open Questions**: [Unresolved questions or topics to follow up on]
 
-Do NOT simply append new paragraphs.
+CONCISENESS & FORMULATING RULES:
+- Use short, punchy fragments (NOT full conversational sentences).
+- Do NOT repeat the same topic name or keywords in multiple fields.
+- Deduplicate items; never repeat information.
+- Format lists cleanly: do NOT leave trailing commas or incomplete punctuation.
+- Keep sub-bullet lists concise, using simple words.
 
-Do NOT remove useful context merely to shorten the summary.
+GOOD SUMMARY EXAMPLE (Note how the markdown is inside the JSON "summary" string, with newlines escaped as \\n):
+{{
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav (Nickname: Jarvis)\\n- **Preferences**: Blue, dark mode\\n- **Key Attributes**: Lives in New York; loves swimming and travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Test available programming/search tools\\n- **Current Topic**: Tool capabilities overview\\n- **Completed Work**: Explained Python and Browser capabilities\\n- **Progress**: Introduced self and aligned on tool list\\n\\n### 📋 NEXT STEPS\\n- **Pending Tasks**: Execute user's first tool request\\n- **Open Questions**: Which tool does the user want to try first?",
+  "facts_json": {{
+    "episodic_events": [],
+    "factual_traits": [],
+    "semantic_concepts": [],
+    "entities": {{}}
+  }}
+}}
+
+BAD SUMMARY EXAMPLE (Avoid this structure):
+{{
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav\\n- **Preferences**: Gaurav prefers the color blue, and Gaurav prefers dark mode, \\n- **Key Attributes**: Lives in New York, loves to swim, loves travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Assist Gaurav with using the Jarvis tools\\n- **Current Topic**: Discussing the Jarvis tools\\n- **Completed Work**: Gave the Jarvis tools to Gaurav and discussed Jarvis tools\\n- **Progress**: Gaurav has introduced himself and wants to use Jarvis tools"
+}}
+
+CRITICAL — IDENTITY AND PERSONAL FACTS:
+User identity facts (name, nickname, location, occupation, age, relationships,
+stable preferences) from the EXISTING SUMMARY must ALWAYS be carried forward
+into the updated summary. Never drop identity facts during merging.
+If the NEW CONVERSATION CHUNK reveals new identity facts, add them to the "USER PROFILE" section.
+Extracting facts into `facts_json` does NOT mean removing them from the summary.
+The summary is the primary context carrier — identity facts must appear in BOTH.
 
 Do NOT include:
-- Greetings.
-- Conversational introductions that contain no meaningful information.
-- Pleasantries or social niceties.
-- Acknowledgements or conversational filler.
-- Repeated information.
+- Greetings or pleasantries that contain NO factual information.
+- Pure acknowledgements or conversational filler (e.g., "okay", "got it", "thanks").
+- Repeated information already present in the summary.
 - Unnecessary chronological narration.
 - Information that has no future conversational value.
-
-Exception:
-If an introduction establishes important conversational context, persistent user information, or information necessary for continuing the conversation, preserve that information appropriately in the summary and, if it has lasting value, extract it into `facts_json`.
-
-The goal is to preserve conversational continuity with minimal information loss.
+- Empty template fields or placeholder strings like "[no information]". Just omit bullet items if they are empty.
 
 ===============================================================================
 OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
@@ -403,6 +442,8 @@ months later?"
 
 If YES:
 Store it inside facts_json.
+If it is a user identity fact or stable personal attribute (name, location,
+occupation, preferences), ALSO ensure it remains in the summary.
 
 If NO:
 Keep it only inside the summary.
@@ -505,13 +546,14 @@ If uncertain, omit it.
 
 Prefer precision over quantity.
 
-Normalize memories into concise canonical wording whenever possible.
+Normalize memories into concise wording whenever possible.
 
 For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
-Always use "User" as the canonical subject for the person you are speaking with, 
-even if they introduce themselves by name. Do not use their name as the subject.
+CRITICAL RULE — CANONICAL SUBJECT:
+Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.
@@ -572,6 +614,224 @@ NEW CONVERSATION CHUNK
 {chunk_text}
 """
 
+DISCONNECTED_BATCH_COMPRESSION_PROMPT = """
+You are an advanced Long-Term Memory Extraction Engine.
+
+Your task is to process a BATCH of DISCONNECTED raw conversation fragments and extract valuable Long-Term Memory (LTM) candidates.
+
+You are given:
+A NEW CONVERSATION CHUNK
+- This contains a batch of raw messages gathered over time (e.g., from a raw ledger).
+- CRITICAL: These messages are DISJOINTED. They do NOT necessarily form a continuous, chronological narrative. Topic A might jump instantly to Topic B (e.g., coding Python on Monday, then suddenly booking a flight on Wednesday).
+
+Your responsibilities:
+1. Extract valuable Long-Term Memory (LTM) candidates independently from the fragments.
+2. Provide a brief overview of the topics covered in the `summary` field.
+
+Return ONLY a single valid JSON object. Ensure all newlines within string values (like the "summary" string) are properly escaped as "\\n" to maintain strict JSON compliance. Do NOT output unescaped literal newlines inside string properties.
+
+Do NOT output markdown outside the JSON.
+
+Do NOT wrap JSON inside code fences.
+
+Do NOT include explanations.
+
+===============================================================================
+OBJECTIVE 1 — SUMMARY
+===============================================================================
+
+Because the chunk contains disconnected fragments, do NOT attempt to write a continuous narrative.
+Instead, briefly list or summarize the distinct topics discussed in this batch.
+(e.g., "The user worked on a Python memory script, then asked about flights to Japan, and finally discussed vegetarian recipes.")
+
+===============================================================================
+OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
+===============================================================================
+
+You must evaluate each message or fragment INDEPENDENTLY.
+
+Do NOT hallucinate connections between different topics in the chunk. If the user talks about Python and then suddenly talks about a recipe, they are NOT related.
+
+Extract only meaningful, high-value long-term memory candidates.
+
+Do NOT extract arbitrary, trivial, or useless facts. Only extract information that has a clear, actionable use-case for future reference. If a fact does not provide significant value to a future AI assistant, DO NOT extract it.
+
+Any duplicate detection, semantic similarity checking, memory merging,
+memory updating, or conflict resolution with previously stored memories
+will be handled by downstream memory management systems.
+
+Before extracting a memory, ask yourself:
+
+"Will this information still be useful if the conversation resumes weeks or
+months later?"
+
+If YES:
+Store it inside facts_json.
+
+If NO:
+Omit it entirely.
+
+------------------------------------------------------------------------------
+episodic_events
+------------------------------------------------------------------------------
+
+Store meaningful events or milestones as a (subject, relation, object) triple.
+
+Examples:
+- {{"subject": "User", "relation": "started", "object": "building an AI memory system"}}
+- {{"subject": "User", "relation": "planned", "object": "a trip to Japan"}}
+- {{"subject": "User", "relation": "completed", "object": "a research project"}}
+- {{"subject": "User", "relation": "began", "object": "learning Spanish"}}
+
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short past-tense relation describing the action (started, planned, completed, began, finished, decided, etc.)
+
+Ignore trivial events.
+
+------------------------------------------------------------------------------
+factual_traits
+------------------------------------------------------------------------------
+
+Store stable or semi-stable information about the user as a (subject, relation, object) triple.
+
+Examples:
+- {{"subject": "User", "relation": "name", "object": "Gaurav"}}
+- {{"subject": "User", "relation": "lives_in", "object": "Delhi"}}
+- {{"subject": "User", "relation": "prefers", "object": "dark mode"}}
+- {{"subject": "User", "relation": "is", "object": "vegetarian"}}
+- {{"subject": "User", "relation": "develops", "object": "AI applications"}}
+
+Use "User" as the canonical subject unless a different named person is explicitly the subject.
+Use a short, lowercase, snake_case relation (e.g. lives_in, prefers, name, is, owns, works_at).
+Do not invent a fixed list of relations — use whatever relation best fits the fact.
+
+Only extract facts explicitly stated or directly established.
+Never infer personal information.
+
+------------------------------------------------------------------------------
+semantic_concepts
+------------------------------------------------------------------------------
+
+Store important concepts central to the discussion as plain strings (no triple needed here).
+
+Examples:
+- "Machine Learning"
+- "Budget Planning"
+- "Memory Compression"
+
+Do NOT extract every noun.
+Only include concepts that would improve future retrieval.
+
+------------------------------------------------------------------------------
+entities
+------------------------------------------------------------------------------
+
+Extract important named entities introduced in the NEW CONVERSATION CHUNK.
+
+Populate whenever applicable:
+• Files/Paths
+• Variables/Functions
+• Classes
+• Libraries
+• Frameworks
+• Models
+• Packages
+• Repositories
+• Commands
+• Errors/Bugs
+• URLs
+• Applications
+• Products
+• Projects
+• Organizations
+• People
+• Places
+• Books
+• Movies
+
+If a category contains no entities, return ["NONE"].
+
+===============================================================================
+EXTRACTION RULES
+===============================================================================
+
+Only extract information explicitly supported by the NEW CONVERSATION CHUNK.
+
+Do NOT extract arbitrary, trivial, or useless facts. Only extract meaningful information that has a clear, actionable use-case for future reference.
+
+Never hallucinate.
+
+Never guess.
+
+Never infer unstated preferences, intentions, or traits.
+
+If uncertain, omit it.
+
+Prefer precision over quantity.
+
+Normalize memories into concise canonical wording whenever possible.
+
+For factual_traits and episodic_events, always output triples in the form
+{{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
+
+CRITICAL RULE — CANONICAL SUBJECT:
+Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
+
+Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
+Set importance low (1-20) for one-off events, trivia, or minor occurrences.
+Set confidence based on how explicitly/clearly the fact was stated (0.9+ for direct statements, lower for implied ones).
+
+Avoid extracting temporary conversational details into long-term memory.
+
+===============================================================================
+EXPECTED JSON OUTPUT
+===============================================================================
+
+{{
+  "summary": "...",
+
+  "facts_json": {{
+
+    "episodic_events": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
+
+    "factual_traits": [{{"subject": "", "relation": "", "object": "", "importance": 0, "confidence": 0}}
+    ],
+
+    "semantic_concepts": [],
+
+    "entities": {{
+      "Files/Paths": [],
+      "Variables/Functions": [],
+      "Classes": [],
+      "Libraries": [],
+      "Frameworks": [],
+      "Models": [],
+      "Packages": [],
+      "Repositories": [],
+      "Commands": [],
+      "Errors/Bugs": [],
+      "URLs": [],
+      "Applications": [],
+      "Products": [],
+      "Projects": [],
+      "Organizations": [],
+      "People": [],
+      "Places": [],
+      "Books": [],
+      "Movies": []
+    }}
+  }}
+}}
+
+===============================================================================
+NEW CONVERSATION CHUNK
+===============================================================================
+
+{chunk_text}
+"""
+
 GROUNDING_PROMPT = """
 You are an advanced Summary Maintenance and Conversation State Reconciliation Engine.
 
@@ -593,9 +853,9 @@ contain:
 Your responsibility is to transform it into a cleaner, more coherent,
 well-structured conversation state while preserving all important information.
 
-Return ONLY a valid JSON object.
+Return ONLY a single valid JSON object. Ensure all newlines within string values (like the "summary" string) are properly escaped as "\n" to maintain strict JSON compliance. Do NOT output unescaped literal newlines inside string properties.
 
-Do NOT output markdown.
+Do NOT output markdown outside the JSON.
 
 Do NOT wrap JSON inside code fences.
 
@@ -605,80 +865,67 @@ Do NOT include explanations.
 OBJECTIVE
 ===============================================================================
 
-The input summary represents the assistant's accumulated Short-Term Memory (STM).
+The input summary represents the assistant's accumulated Short-Term Memory (STM). It is formatted in structured markdown.
 
-Treat it as the authoritative representation of the conversation.
+Reconcile, clean, and deduplicate the content under each header. Preserve the exact structure:
+- `### 👤 USER PROFILE`
+- `### 🎯 SESSION STATE`
+- `### 📋 NEXT STEPS`
 
-Improve its quality WITHOUT losing important context.
+Improve the quality of the summary, resolving any contradictions, removing redundancies, and optimizing readability. Do NOT rewrite the structure, convert it into bulletless narrative paragraphs, or flatten it. Maintain the structured markdown layout.
 
-The output should still represent exactly the same conversation state,
-only better organized, more coherent, and easier for another assistant
-to understand.
+REQUIRED SUMMARY FORMAT:
+### 👤 USER PROFILE
+- **Name**: [Preserve name/nickname]
+- **Preferences**: [Clean/deduplicate stable preferences]
+- **Key Attributes**: [Clean/deduplicate location, occupation, or identity facts]
 
-===============================================================================
-WHAT TO PRESERVE
-===============================================================================
+### 🎯 SESSION STATE
+- **Active Goal**: [Primary objective, consolidated]
+- **Current Topic**: [Most recent active topic]
+- **Completed Work**: [Consolidated list of completed tasks/decisions]
+- **Progress**: [Coherent, consolidated progress flow]
 
-Preserve whenever applicable:
-• user goals
-• current discussion topics
-• overall context
-• important decisions
-• conclusions
-• completed work
-• current progress
-• active tasks
-• unresolved questions
-• ongoing problems
-• constraints
-• assumptions
-• assistant commitments
-• conversation-relevant user preferences
-• important contextual relationships
-• any information required for seamless continuation
+### 📋 NEXT STEPS
+- **Pending Tasks**: [Consolidated outstanding actions/commitments]
+- **Open Questions**: [Consolidated open questions]
 
-===============================================================================
-WHAT TO IMPROVE
-===============================================================================
+CONCISENESS & FORMULATING RULES:
+- Use short, punchy fragments (NOT full conversational sentences).
+- Do NOT repeat the same topic name or keywords in multiple fields.
+- Deduplicate items; never repeat information.
+- Format lists cleanly: do NOT leave trailing commas or incomplete punctuation.
+- Keep sub-bullet lists concise, using simple words.
 
-Improve the summary by:
-• removing duplicate information
-• merging repeated ideas
-• removing obsolete information that is no longer relevant
-• resolving contradictions using the most recent information
-• improving logical flow
-• improving readability
-• improving clarity
-• reducing unnecessary verbosity
-• preserving all meaningful context
-
-Do NOT aggressively shorten the summary.
-
-Optimize for information quality rather than minimum length.
-
-===============================================================================
-WHAT NOT TO DO
-===============================================================================
-
-Do NOT:
-• invent information
-• hallucinate facts
-• remove useful context
-• remove active tasks
-• remove unresolved questions
-• remove important decisions
-• convert the summary into bullet points
-• rewrite it as a chronological transcript
-
-Maintain it as a natural, coherent state-preserving narrative.
-
-===============================================================================
-OUTPUT FORMAT
-===============================================================================
-
+GOOD SUMMARY EXAMPLE (Note how the markdown is inside the JSON "summary" string, with newlines escaped as \\n):
 {{
-  "summary": "Improved rolling conversation summary."
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav (Nickname: Jarvis)\\n- **Preferences**: Blue, dark mode\\n- **Key Attributes**: Lives in New York; loves swimming and travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Test available programming/search tools\\n- **Current Topic**: Tool capabilities overview\\n- **Completed Work**: Explained Python and Browser capabilities\\n- **Progress**: Introduced self and aligned on tool list\\n\\n### 📋 NEXT STEPS\\n- **Pending Tasks**: Execute user's first tool request\\n- **Open Questions**: Which tool does the user want to try first?",
+  "facts_json": {{
+    "episodic_events": [],
+    "factual_traits": [],
+    "semantic_concepts": [],
+    "entities": {{}}
+  }}
 }}
+
+BAD SUMMARY EXAMPLE (Avoid this structure):
+{{
+  "summary": "### 👤 USER PROFILE\\n- **Name**: Gaurav\\n- **Preferences**: Gaurav prefers the color blue, and Gaurav prefers dark mode, \\n- **Key Attributes**: Lives in New York, loves to swim, loves travel\\n\\n### 🎯 SESSION STATE\\n- **Active Goal**: Assist Gaurav with using the Jarvis tools\\n- **Current Topic**: Discussing the Jarvis tools\\n- **Completed Work**: Gave the Jarvis tools to Gaurav and discussed Jarvis tools\\n- **Progress**: Gaurav has introduced himself and wants to use Jarvis tools"
+}}
+
+CRITICAL — IDENTITY AND PERSONAL FACTS:
+User identity facts (name, nickname, location, occupation, age, relationships,
+stable preferences) must ALWAYS be preserved. Never drop or summarize away the actual
+values of identity facts (e.g. do not turn "Name is Gaurav" into "User's name was discussed").
+The actual values must remain explicitly written in the summary.
+
+Do NOT include:
+- Greetings or pleasantries that contain NO factual information.
+- Pure acknowledgements or conversational filler (e.g., "okay", "got it", "thanks").
+- Repeated information already present in the summary.
+- Unnecessary chronological narration.
+- Information that has no future conversational value.
+- Empty template fields or placeholder strings like "[no information]". Just omit bullet items if they are empty.
 
 ===============================================================================
 CURRENT SUMMARY

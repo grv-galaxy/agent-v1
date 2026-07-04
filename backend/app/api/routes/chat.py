@@ -10,6 +10,8 @@ from app.core.config import get_saved_config
 from app.utils.token import build_payload_within_budget, should_compress, get_chunk_for_compression, cap_summary_by_tokens, count_tokens, is_oversized_message
 from app.services.compression import compress_chunk, grounding_pass
 from app.services.telemetry import dispatch_stats_event  # 🧠 Import our zero-friction dispatcher
+from app.utils.raw_ledger import append_ledger, read_and_clear_ledger
+from app.core.chat_prompts import FIRST_TURN_SYSTEM_PROMPT, ONGOING_CONVERSATION_SYSTEM_PROMPT
 
 router = APIRouter()
 
@@ -88,22 +90,19 @@ async def stream_chat_response(req: ChatRequest):
         # Extract the safely truncated message history
         messages_list = budget_result["messages"]
 
-        # Inject rolling summary if present
+        base_system_prompt = system_prompt + "\n\n" if system_prompt else ""
+        
+        # Inject the new formal system prompts
         if safe_rolling_summary:
-            summary_message = {
-                "role": "user",
-                "content": f"[CONVERSATION CONTEXT - earlier messages summarized]\n{safe_rolling_summary}"
-            } 
-            messages_list.insert(0, summary_message)
+            raw_buffer_size = req.memory_raw_buffer or 10
+            final_system_prompt = base_system_prompt + ONGOING_CONVERSATION_SYSTEM_PROMPT.format(
+                rolling_summary=safe_rolling_summary,
+                raw_buffer_size=raw_buffer_size
+            )
+        else:
+            final_system_prompt = base_system_prompt + FIRST_TURN_SYSTEM_PROMPT
 
-
-            # insert_at = 1 if raw_messages and raw_messages[0]["role"] == "system" else 0
-            # raw_messages.insert(insert_at, summary_message)
-            
-            
-        # Re-insert system prompt back at index 0 if it was stripped for budget calculations
-        if system_prompt:
-            messages_list.insert(0, {"role": "system", "content": system_prompt})
+        messages_list.insert(0, {"role": "system", "content": final_system_prompt})
 
         # Log if messages were dropped (useful for production debugging)
         if budget_result["messages_dropped"] > 0:
@@ -144,29 +143,26 @@ async def stream_chat_response(req: ChatRequest):
         memory_provider_factory_key = "gemini" if memory_provider_name.lower() == "google-gemini" else memory_provider_name
         memory_provider_instance = ProviderFactory.create(memory_provider_factory_key, memory_api_key_value)
 
-        # --- Frontend-driven compression trigger ---
-        visible_messages = [{"role": m.role, "content": m.content} for m in req.messages]
-        compression_chunk = [
-            {"role": m.role, "content": m.content}
-            for m in (req.compression_chunk or [])
-        ]
-
+        # --- Frontend-driven compression trigger (Reads from Ledger) ---
         next_epoch = (req.compression_epoch or 0) + 1
         compression_task = None
+        compression_chunk = None
 
-        if req.use_memory and req.should_compress and compression_chunk:
-            # ─── FIXED: Threading missing session orchestration arguments through ───
-            compression_task = asyncio.create_task(
-                compress_chunk(
-                    chunk_messages=compression_chunk,
-                    existing_summary=req.rolling_summary or "",
-                    provider_instance=memory_provider_instance,
-                    model_name=memory_model_name,
-                    session_id=req.session_id or "default",
-                    compression_epoch=next_epoch,
-                    max_summary_tokens=req.memory_summary_cap_tokens or 800,
+        if req.use_memory and req.should_compress:
+            compression_chunk = await read_and_clear_ledger(req.session_id or "default")
+            
+            if compression_chunk:
+                compression_task = asyncio.create_task(
+                    compress_chunk(
+                        chunk_messages=compression_chunk,
+                        existing_summary=req.rolling_summary or "",
+                        provider_instance=memory_provider_instance,
+                        model_name=memory_model_name,
+                        session_id=req.session_id or "default",
+                        compression_epoch=next_epoch,
+                        max_summary_tokens=req.memory_summary_cap_tokens or 800,
+                    )
                 )
-            )
 
         # --- Task A: Stream main response to user ---
         start_time = time.time()  # 🧠 Benchmark metric point start
@@ -188,6 +184,16 @@ async def stream_chat_response(req: ChatRequest):
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens
         })
+
+        # --- Append to Raw Ledger ---
+        if req.use_memory:
+            user_msg_content = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+            
+            await append_ledger(
+                session_id=req.session_id or "default",
+                user_msg=user_msg_content,
+                assistant_msg=completion_text_accum
+            )
 
         # --- After streaming: check if compression finished ---
         if compression_task is not None:

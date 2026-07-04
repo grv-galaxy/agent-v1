@@ -228,8 +228,10 @@ For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
 CRITICAL RULE — CANONICAL SUBJECT:
-Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
-Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
+Always use the exact string "User" as the subject for the person you are speaking with, and "Assistant" for yourself.
+(e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav", "Jarvis", "Jay", or any other name) as the subject of factual_traits or episodic_events. 
+The subject must strictly be the literal string "User" or "Assistant". No names allowed in the subject field whatsoever.
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.
@@ -552,8 +554,10 @@ For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
 CRITICAL RULE — CANONICAL SUBJECT:
-Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
-Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
+Always use the exact string "User" as the subject for the person you are speaking with, and "Assistant" for yourself.
+(e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav", "Jarvis", "Jay", or any other name) as the subject of factual_traits or episodic_events. 
+The subject must strictly be the literal string "User" or "Assistant". No names allowed in the subject field whatsoever.
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.
@@ -775,8 +779,10 @@ For factual_traits and episodic_events, always output triples in the form
 {{"subject": "...", "relation": "...", "object": "...", "importance": <1-100>, "confidence": <0-1>}}.
 
 CRITICAL RULE — CANONICAL SUBJECT:
-Always use the string "User" as the subject for the person you are speaking with (e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
-Do NOT use the user's actual name (e.g. do NOT use "Gaurav" or "Jarvis") as the subject of factual_traits or episodic_events. The subject must strictly be the string "User".
+Always use the exact string "User" as the subject for the person you are speaking with, and "Assistant" for yourself.
+(e.g. {{"subject": "User", "relation": "name", "object": "Gaurav"}}).
+Do NOT use the user's actual name (e.g. do NOT use "Gaurav", "Jarvis", "Jay", or any other name) as the subject of factual_traits or episodic_events. 
+The subject must strictly be the literal string "User" or "Assistant". No names allowed in the subject field whatsoever.
 
 Set importance high (80-100) for identity/stable attributes (name, location, relationships, firm preferences).
 Set importance low (1-20) for one-off events, trivia, or minor occurrences.

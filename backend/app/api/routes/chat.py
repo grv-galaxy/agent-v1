@@ -8,10 +8,12 @@ from typing import Literal, Optional, List
 from app.providers.factory import ProviderFactory
 from app.core.config import get_saved_config
 from app.utils.token import build_payload_within_budget, should_compress, get_chunk_for_compression, cap_summary_by_tokens, count_tokens, is_oversized_message
-from app.services.compression import compress_chunk, grounding_pass
+from app.services.compression import compress_chunk, grounding_pass, process_batch_compression
 from app.services.telemetry import dispatch_stats_event  # 🧠 Import our zero-friction dispatcher
-from app.utils.raw_ledger import append_ledger, read_and_clear_ledger
+from app.utils.raw_ledger import append_ledger, read_and_clear_ledger, count_ledger_files, count_ledger_tokens, read_and_clear_all_ledgers
 from app.core.chat_prompts import FIRST_TURN_SYSTEM_PROMPT, ONGOING_CONVERSATION_SYSTEM_PROMPT
+from app.services import skill_reader
+from app.core import skill_prompts
 
 router = APIRouter()
 
@@ -168,11 +170,135 @@ async def stream_chat_response(req: ChatRequest):
         start_time = time.time()  # 🧠 Benchmark metric point start
         completion_text_accum = ""
         
+        # -----------------------------------------------------------------------
+        # Sliding-window @jsonstart / @jsonstop interceptor
+        # Text before a tag streams normally.
+        # Text inside a @jsonstart...@jsonstop block is buffered silently;
+        # when the closing tag arrives we parse it and emit a tool_status event.
+        # -----------------------------------------------------------------------
+        OPEN_TAG  = "@jsonstart"
+        CLOSE_TAG = "@jsonstop"
+
+        intercept_buffer = ""   # accumulates chars while in interception mode
+        pre_tag_buffer   = ""   # accumulates chars when we might be mid-open-tag
+        intercepting     = False
+
+        # Extract user query once — used by both tool handlers below
+        _user_query = next(
+            (m.content for m in reversed(req.messages) if m.role == "user"), ""
+        )
+
         async for chunk in provider_instance.generate_stream(model_name, messages_list):
             text = chunk.get("text", "")
-            if text:
-                completion_text_accum += text
-                yield f"data: {json.dumps({'chunk': text})}\n\n"
+            if not text:
+                continue
+
+            completion_text_accum += text
+
+            if intercepting:
+                # --- We are inside a @jsonstart block ---
+                intercept_buffer += text
+                close_idx = intercept_buffer.find(CLOSE_TAG)
+                if close_idx != -1:
+                    # Everything before @jsonstop is the JSON payload
+                    raw_json = intercept_buffer[:close_idx].strip()
+                    # Everything after @jsonstop continues as normal text
+                    leftover = intercept_buffer[close_idx + len(CLOSE_TAG):]
+
+                    # Parse and emit the tool_status event, then execute the tool
+                    try:
+                        parsed_tool = json.loads(raw_json)
+                        logo        = parsed_tool.get("logo", "Reading")
+                        reason      = parsed_tool.get("reason", "")
+                        tool_name   = parsed_tool.get("tool", "")
+                        skill_name  = parsed_tool.get("skill_name", "")
+
+                        # 1️⃣  Emit tool_status banner to the frontend
+                        yield f"data: {json.dumps({'tool_status': {'logo': logo, 'reason': reason, 'tool': tool_name, 'skill_name': skill_name}})}\n\n"
+
+                        # 2️⃣  Execute: read_skill → load file → second grounded LLM call
+                        if tool_name == "read_skill" and skill_name:
+                            skill_content = await skill_reader.read_skill(skill_name)
+
+                            if skill_content:
+                                grounded_msgs = skill_prompts.build_grounded_messages(
+                                    skill_name=skill_name,
+                                    skill_content=skill_content,
+                                    user_query=_user_query,
+                                )
+                                # Stream the skill-grounded answer as normal chunks
+                                async for sk_chunk in provider_instance.generate_stream(
+                                    model_name, grounded_msgs
+                                ):
+                                    sk_text = sk_chunk.get("text", "")
+                                    if sk_text:
+                                        completion_text_accum += sk_text
+                                        yield f"data: {json.dumps({'chunk': sk_text})}\n\n"
+                            else:
+                                # Skill file missing — tell the user gracefully
+                                fallback = (
+                                    f"\n> ⚠️ Skill `{skill_name}` not found — "
+                                    "proceeding from general knowledge.\n\n"
+                                )
+                                completion_text_accum += fallback
+                                yield f"data: {json.dumps({'chunk': fallback})}\n\n"
+
+                        # 2️⃣  Execute: search_skills → keyword match → inject results
+                        elif tool_name == "search_skills":
+                            keywords = parsed_tool.get("keywords", [])
+                            matches  = skill_reader.search_skills(keywords)
+                            if matches:
+                                result_text = (
+                                    f"\n*Relevant skills found: **{', '.join(matches)}**. "
+                                    "Loading the best match now.*\n\n"
+                                )
+                            else:
+                                result_text = (
+                                    "\n*No specific skill found for this task — "
+                                    "proceeding from general knowledge.*\n\n"
+                                )
+                            completion_text_accum += result_text
+                            yield f"data: {json.dumps({'chunk': result_text})}\n\n"
+
+                    except json.JSONDecodeError:
+                        # Malformed JSON — drop it silently (never leak to user)
+                        pass
+
+                    intercept_buffer = ""
+                    intercepting = False
+
+                    # Stream any text that came after the closing tag
+                    if leftover.strip():
+                        yield f"data: {json.dumps({'chunk': leftover})}\n\n"
+            else:
+                # --- Normal streaming mode ---
+                # Combine with any partial open-tag we were watching
+                candidate = pre_tag_buffer + text
+                pre_tag_buffer = ""
+
+                open_idx = candidate.find(OPEN_TAG)
+                if open_idx != -1:
+                    # Flush text before the tag
+                    before = candidate[:open_idx]
+                    if before:
+                        yield f"data: {json.dumps({'chunk': before})}\n\n"
+                    # Switch to interception mode
+                    intercept_buffer = candidate[open_idx + len(OPEN_TAG):]
+                    intercepting = True
+                else:
+                    # No open tag found, but the tail might be a partial match
+                    # (e.g. text ends with "@json" — hold it back one cycle)
+                    safe_len = max(0, len(candidate) - len(OPEN_TAG))
+                    safe_text   = candidate[:safe_len]
+                    held_back   = candidate[safe_len:]
+
+                    if safe_text:
+                        yield f"data: {json.dumps({'chunk': safe_text})}\n\n"
+                    pre_tag_buffer = held_back
+
+        # Flush any held-back text that never matched a tag
+        if pre_tag_buffer:
+            yield f"data: {json.dumps({'chunk': pre_tag_buffer})}\n\n"
                 
         # 🧠 Telemetry Hook: Calculate latency & total token footprints post-stream
         latency_ms = (time.time() - start_time) * 1000.0
@@ -194,6 +320,20 @@ async def stream_chat_response(req: ChatRequest):
                 user_msg=user_msg_content,
                 assistant_msg=completion_text_accum
             )
+
+            # --- Check for Batch Compression ---
+            total_tokens = await count_ledger_tokens()
+            if total_tokens >= 5000:
+                all_chunk = await read_and_clear_all_ledgers()
+                if all_chunk:
+                    asyncio.create_task(
+                        process_batch_compression(
+                            chunk_messages=all_chunk,
+                            provider_instance=memory_provider_instance,
+                            model_name=memory_model_name,
+                            session_id="batch_worker"
+                        )
+                    )
 
         # --- After streaming: check if compression finished ---
         if compression_task is not None:

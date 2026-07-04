@@ -38,7 +38,8 @@ class GroqProvider(BaseProvider):
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=False,
-                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens"]}
+                parallel_tool_calls=False,
+                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens", "parallel_tool_calls"]}
             )
             
             text_content = response.choices[0].message.content or ""
@@ -78,14 +79,16 @@ class GroqProvider(BaseProvider):
         # stream_options = {"include_usage": True}
 
         try:
+            # Force parallel_tool_calls=False to help suppress native tool errors
             response_stream = await client.chat.completions.create(
                 model=model,
                 messages=messages,  # type: ignore
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
+                parallel_tool_calls=False,
                 # stream_options=stream_options,
-                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens", "stream_options"]}
+                **{k: v for k, v in kwargs.items() if k not in ["temperature", "max_tokens", "stream_options", "parallel_tool_calls"]}
             )
 
             async for chunk in response_stream:

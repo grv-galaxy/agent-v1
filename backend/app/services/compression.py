@@ -3,7 +3,8 @@ import json
 import re
 from app.utils.token import count_tokens, cap_summary_by_tokens
 from app.utils.storage import trigger_on_demand_save
-from app.core.prompts import FIRST_EPOCH_PROMPT, ANCHORED_COMPRESSION_PROMPT, GROUNDING_PROMPT
+from app.core.prompts import FIRST_EPOCH_PROMPT, ANCHORED_COMPRESSION_PROMPT, GROUNDING_PROMPT, DISCONNECTED_BATCH_COMPRESSION_PROMPT
+from app.services.memory_trigger import trigger_sync_background
 
 def fix_unescaped_newlines(json_str: str) -> str:
     #\"\"\"Fixes unescaped newlines, carriage returns, and tabs inside JSON string literals.\"\"\"
@@ -217,3 +218,61 @@ async def grounding_pass(
     except Exception as e:
         print(f"[Error] Grounding failed: {e}")
         return cap_summary_by_tokens(current_summary, max_summary_tokens)
+
+
+async def process_batch_compression(
+    chunk_messages: list[dict],
+    provider_instance,
+    model_name: str,
+    session_id: str = "batch_worker"
+):
+    """
+    Processes a disconnected batch of raw ledger messages.
+    """
+    if not chunk_messages:
+        return
+
+    try:
+        # --- Step 1: Prepare chunk_text ---
+        chunk_text = "\n".join(
+            f"[{m.get('role', 'unknown').upper()}]: {m.get('content', '')}"
+            for m in chunk_messages
+        )
+
+        # --- Step 2: Select prompt ---
+        prompt = DISCONNECTED_BATCH_COMPRESSION_PROMPT.format(chunk_text=chunk_text)
+
+        # --- Step 3: Stream LLM response ---
+        result_tokens = []
+        async for chunk in provider_instance.generate_stream(model_name, [{"role": "user", "content": prompt}]):
+            if isinstance(chunk, dict):
+                result_tokens.append(chunk.get("text", ""))
+        raw_response = "".join(result_tokens).strip()
+
+        # --- Step 4: Parse JSON ---
+        parsed_payload = extract_json_from_output(raw_response)
+        if parsed_payload and isinstance(parsed_payload, dict):
+            new_summary = parsed_payload.get("summary", "").strip()
+            facts = parsed_payload.get("facts_json", {})
+        else:
+            print("[Warning] Batch compression parsing failed.")
+            return
+
+        if facts:
+            # --- Step 5: Save and Sync ---
+            trigger_on_demand_save(
+                session_id=session_id,
+                epoch=999,  # Arbitrary high epoch for batch
+                event_type="batch_compression",
+                rolling_summary=new_summary or "Batch Processed",
+                facts=facts,
+            )
+            
+            # Notify LTM
+            trigger_sync_background()
+
+    except Exception as e:
+        print(f"[ERROR] Batch Compression failed: {e}")
+        import traceback
+        traceback.print_exc()
+

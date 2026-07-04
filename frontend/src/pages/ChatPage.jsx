@@ -4,6 +4,7 @@ import ConnectionToast from '../components/ConnectionToast.jsx';
 import MemoryCompressionBadge from '../components/MemoryCompressionBadge.jsx';
 import MessageFormatter from '../components/MessageFormatter.jsx';
 import SettingsPage from './SettingsPage.jsx';
+import animatedActionIconsSrc from '../assets/animated_action_icons.svg';
 
 const CHAT_ENDPOINT =
   import.meta.env.VITE_CHAT_URL ||
@@ -534,6 +535,72 @@ function ToolThinkingBadge({ tool }) {
   );
 }
 
+function ThinkingDotsLoader() {
+  return (
+    <div className="flex items-center gap-[5px] py-[5px]" aria-label="Thinking..." role="status">
+      <span className="thinking-dot" style={{ animationDelay: '0ms' }} />
+      <span className="thinking-dot" style={{ animationDelay: '180ms' }} />
+      <span className="thinking-dot" style={{ animationDelay: '360ms' }} />
+    </div>
+  );
+}
+
+function ToolStatusBanner({ logo, reason }) {
+  // SVG spritesheet: viewBox 0 0 680 200
+  // Icon groups are translated to: Reading=115, Searching=265, Writing=415, Creating=565 (x)
+  // Each icon occupies roughly 70x70 SVG units centred on its group origin (y=85)
+  // We display a 20x20px window. We scale so 70 SVG units = 20px → scale = 20/70 ≈ 0.2857
+  const BOX = 20;           // visible container px
+  const ICON_REGION = 70;   // SVG units each icon spans
+  const SCALE = BOX / ICON_REGION;
+
+  // Full sheet dimensions at this scale
+  const bgW = Math.round(680 * SCALE);  // ≈ 194px
+  const bgH = Math.round(200 * SCALE);  // ≈ 57px
+
+  // Icon centres in SVG units → scaled → shift so centre lands at BOX/2
+  const ICON_MAP = {
+    reading:   { cx: 115, label: 'Reading'   },
+    searching: { cx: 265, label: 'Searching' },
+    writing:   { cx: 415, label: 'Writing'   },
+    creating:  { cx: 565, label: 'Creating'  },
+  };
+  const key  = (logo || 'reading').toLowerCase();
+  const icon = ICON_MAP[key] || ICON_MAP.reading;
+
+  const offsetX = Math.round(-(icon.cx * SCALE) + BOX / 2);  // px
+  const offsetY = Math.round(-(85   * SCALE) + BOX / 2);     // y=85 is group centre in sheet
+
+  return (
+    <div
+      className="tool-status-banner mt-2 flex items-center gap-2 text-[13px] italic text-[#888888]"
+      role="status"
+      aria-label={`${icon.label}: ${reason}`}
+    >
+      <div
+        className="shrink-0 overflow-hidden rounded-sm"
+        style={{ width: BOX, height: BOX }}
+      >
+        <img
+          src={animatedActionIconsSrc}
+          alt=""
+          aria-hidden="true"
+          style={{
+            width:      bgW,
+            height:     bgH,
+            marginLeft: offsetX,
+            marginTop:  offsetY,
+            display:    'block',
+            flexShrink: 0,
+            filter:     'invert(1) brightness(1.3)',
+          }}
+        />
+      </div>
+      <span>{reason || `${icon.label}...`}</span>
+    </div>
+  );
+}
+
 export default function ChatPage({
   provider,
   onProviderUpdate,
@@ -549,6 +616,7 @@ export default function ChatPage({
   const [activeSessionId, setActiveSessionId] = useState(initialSessionRef.current.id);
   const [composerResetKey, setComposerResetKey] = useState(0);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isWaitingForFirstChunk, setIsWaitingForFirstChunk] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [openMenuId, setOpenMenuId] = useState(null);
   const [renamingSessionId, setRenamingSessionId] = useState(null);
@@ -563,6 +631,7 @@ export default function ChatPage({
   const [showBackendOfflineBanner, setShowBackendOfflineBanner] = useState(false);
   const [memoryBadgeSessionId, setMemoryBadgeSessionId] = useState(null);
   const [toolThinking, setToolThinking] = useState(null);
+  const [activeTool, setActiveTool] = useState(null);
   const assistantMessageIdRef = useRef(0);
   const activeAssistantMessageIdRef = useRef(null);
   const interruptedMessageIdRef = useRef(null);
@@ -981,6 +1050,7 @@ export default function ChatPage({
       ),
     );
     setIsStreaming(true);
+    setIsWaitingForFirstChunk(true);
     setErrorMessage('');
     clearToolThinking();
 
@@ -1044,6 +1114,7 @@ export default function ChatPage({
     // ==========================================
 
     void (async () => {
+      let firstChunkReceived = false;
       try {
         const groundingInterval = (memoryParams && memoryParams.interval && memoryParams.interval > 0) ? memoryParams.interval : 5;
         const summary_history = activeSession.summary_history || [];
@@ -1155,6 +1226,14 @@ export default function ChatPage({
                   }, 10000);
                   continue;
                 }
+                // Handle tool_status event from @jsonstart interceptor
+                if (parsed.tool_status) {
+                  setActiveTool({
+                    ...parsed.tool_status,
+                    messageId: assistantMessage.id,
+                  });
+                  continue;
+                }
                 // Handle memory compression control frame
                 // Handle memory compression control frame
                 if (parsed.control === "memory_compact") {
@@ -1204,6 +1283,11 @@ export default function ChatPage({
                 }
                 if (parsed.chunk) {
                   clearToolThinking();
+                  setActiveTool(null); // hide tool banner once real text arrives
+                  if (!firstChunkReceived) {
+                    firstChunkReceived = true;
+                    setIsWaitingForFirstChunk(false);
+                  }
                   updateAssistantMessage(assistantMessage.id, parsed.chunk);
                 }
               } catch (error) {
@@ -1233,6 +1317,8 @@ export default function ChatPage({
         setErrorMessage(error?.message || 'Chat stream failed.');
       } finally {
         setIsStreaming(false);
+        setIsWaitingForFirstChunk(false);
+        setActiveTool(null);
         streamAbortControllerRef.current = null;
         activeAssistantMessageIdRef.current = null;
         toolTimeoutAbortRef.current = false;
@@ -1477,12 +1563,24 @@ export default function ChatPage({
                               </div>
                             </div>
                             <div className="min-w-0 max-w-[760px]">
-                              <MessageFormatter
-                                content={message.content}
-                                isStreaming={isStreamingAssistant}
-                              />
+                              {isWaitingForFirstChunk &&
+                              message.id === `assistant-${assistantMessageIdRef.current}` &&
+                              message.content === '' ? (
+                                <ThinkingDotsLoader />
+                              ) : (
+                                <MessageFormatter
+                                  content={message.content}
+                                  isStreaming={isStreamingAssistant}
+                                />
+                              )}
+                              {activeTool?.messageId === message.id ? (
+                                <ToolStatusBanner
+                                  logo={activeTool.logo}
+                                  reason={activeTool.reason}
+                                />
+                              ) : null}
                               {memoryBadgeSessionId === activeMemorySessionId &&
-                              message.id === displayMessages[displayMessages.length - 1]?.id ? ( // <-- NEW: Use displayMessages here too
+                              message.id === displayMessages[displayMessages.length - 1]?.id ? (
                                 <MemoryCompressionBadge visible />
                               ) : null}
                               {toolThinking?.messageId === message.id ? (

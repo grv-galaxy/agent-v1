@@ -10,7 +10,7 @@ from app.core.config import get_saved_config
 from app.utils.token import build_payload_within_budget, should_compress, get_chunk_for_compression, cap_summary_by_tokens, count_tokens, is_oversized_message
 from app.services.compression import compress_chunk, grounding_pass, process_batch_compression
 from app.services.telemetry import dispatch_stats_event  # 🧠 Import our zero-friction dispatcher
-from app.utils.raw_ledger import append_ledger, read_and_clear_ledger, count_ledger_files, count_ledger_tokens, read_and_clear_all_ledgers
+from app.utils.raw_ledger import append_ledger, read_and_clear_ledger, count_ledger_files, count_session_tokens
 from app.core.chat_prompts import FIRST_TURN_SYSTEM_PROMPT, ONGOING_CONVERSATION_SYSTEM_PROMPT
 from app.services import skill_reader
 from app.core import skill_prompts
@@ -323,16 +323,16 @@ async def stream_chat_response(req: ChatRequest):
             )
 
             # --- Check for Batch Compression ---
-            total_tokens = await count_ledger_tokens()
-            if total_tokens >= 5000:
-                all_chunk = await read_and_clear_all_ledgers()
-                if all_chunk:
+            session_tokens = await count_session_tokens(req.session_id or "default")
+            if session_tokens >= 5000:
+                session_chunk = await read_and_clear_ledger(req.session_id or "default")
+                if session_chunk:
                     asyncio.create_task(
                         process_batch_compression(
-                            chunk_messages=all_chunk,
+                            chunk_messages=session_chunk,
                             provider_instance=memory_provider_instance,
                             model_name=memory_model_name,
-                            session_id="batch_worker"
+                            session_id=req.session_id or "default"
                         )
                     )
 

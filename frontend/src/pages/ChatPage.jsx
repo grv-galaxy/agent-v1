@@ -545,58 +545,69 @@ function ThinkingDotsLoader() {
   );
 }
 
-function ToolStatusBanner({ logo, reason }) {
-  // SVG spritesheet: viewBox 0 0 680 200
-  // Icon groups are translated to: Reading=115, Searching=265, Writing=415, Creating=565 (x)
-  // Each icon occupies roughly 70x70 SVG units centred on its group origin (y=85)
-  // We display a 20x20px window. We scale so 70 SVG units = 20px → scale = 20/70 ≈ 0.2857
-  const BOX = 20;           // visible container px
-  const ICON_REGION = 70;   // SVG units each icon spans
-  const SCALE = BOX / ICON_REGION;
-
-  // Full sheet dimensions at this scale
-  const bgW = Math.round(680 * SCALE);  // ≈ 194px
-  const bgH = Math.round(200 * SCALE);  // ≈ 57px
-
-  // Icon centres in SVG units → scaled → shift so centre lands at BOX/2
+function getSvgClipStyle(logo, boxSize = 14) {
   const ICON_MAP = {
-    reading:   { cx: 115, label: 'Reading'   },
-    searching: { cx: 265, label: 'Searching' },
-    writing:   { cx: 415, label: 'Writing'   },
-    creating:  { cx: 565, label: 'Creating'  },
+    reading:   { cx: 115, label: 'Reading',   color: 'rgba(99, 102, 241, 0.4)',  accent: '#6366F1' },
+    searching: { cx: 265, label: 'Searching', color: 'rgba(245, 158, 11, 0.4)',  accent: '#F59E0B' },
+    writing:   { cx: 415, label: 'Writing',   color: 'rgba(239, 68, 68, 0.4)',   accent: '#EF4444' },
+    creating:  { cx: 565, label: 'Creating',  color: 'rgba(16, 185, 129, 0.4)',  accent: '#10B981' },
   };
-  const key  = (logo || 'reading').toLowerCase();
+  const key = (logo || 'reading').toLowerCase();
   const icon = ICON_MAP[key] || ICON_MAP.reading;
 
-  const offsetX = Math.round(-(icon.cx * SCALE) + BOX / 2);  // px
-  const offsetY = Math.round(-(85   * SCALE) + BOX / 2);     // y=85 is group centre in sheet
+  // We want to fit y = 50 to y = 120 (height = 70) inside boxSize
+  const SCALE = boxSize / 70;
+  const bgW = Math.round(680 * SCALE);
+  const bgH = Math.round(200 * SCALE);
+  const offsetX = Math.round(-(icon.cx * SCALE) + boxSize / 2);
+  const offsetY = Math.round(-(85   * SCALE) + boxSize / 2);
 
+  return {
+    icon,
+    style: {
+      width: `${boxSize}px`,
+      height: `${boxSize}px`,
+      backgroundImage: `url(${animatedActionIconsSrc})`,
+      backgroundSize: `${bgW}px ${bgH}px`,
+      backgroundPosition: `${offsetX}px ${offsetY}px`,
+      backgroundRepeat: 'no-repeat',
+      filter: 'invert(1) brightness(1.3)',
+    }
+  };
+}
+
+function ToolStatusBanner({ logo, reason }) {
+  const { icon, style } = getSvgClipStyle(logo, 14);
   return (
     <div
       className="tool-status-banner mt-2 flex items-center gap-2 text-[13px] italic text-[#888888]"
       role="status"
       aria-label={`${icon.label}: ${reason}`}
     >
-      <div
-        className="shrink-0 overflow-hidden rounded-sm"
-        style={{ width: BOX, height: BOX }}
-      >
-        <img
-          src={animatedActionIconsSrc}
-          alt=""
-          aria-hidden="true"
-          style={{
-            width:      bgW,
-            height:     bgH,
-            marginLeft: offsetX,
-            marginTop:  offsetY,
-            display:    'block',
-            flexShrink: 0,
-            filter:     'invert(1) brightness(1.3)',
-          }}
-        />
-      </div>
+      <div className="shrink-0 rounded-sm overflow-hidden" style={style} />
       <span>{reason || `${icon.label}...`}</span>
+    </div>
+  );
+}
+
+function ToolStatusSkeletonLoader({ logo, reason }) {
+  const { icon, style } = getSvgClipStyle(logo, 14);
+  return (
+    <div className="flex items-center gap-2 mt-1 h-5">
+      <div className="relative flex items-center justify-center shrink-0 w-[18px] h-[18px]">
+        {/* Pulsing background ring */}
+        <div 
+          className="absolute inset-0 rounded-full animate-ping opacity-20"
+          style={{ backgroundColor: icon.accent, margin: '1px' }}
+        />
+        <div className="relative z-10 shrink-0 rounded-sm overflow-hidden" style={style} />
+      </div>
+      <span 
+        className="reason-shimmer-text text-[14px] font-medium leading-none"
+        style={{ color: icon.accent }}
+      >
+        {reason || `${icon.label}...`}
+      </span>
     </div>
   );
 }
@@ -1566,19 +1577,28 @@ export default function ChatPage({
                               {isWaitingForFirstChunk &&
                               message.id === `assistant-${assistantMessageIdRef.current}` &&
                               message.content === '' ? (
-                                <ThinkingDotsLoader />
+                                activeTool?.messageId === message.id ? (
+                                  <ToolStatusSkeletonLoader
+                                    logo={activeTool.logo}
+                                    reason={activeTool.reason}
+                                  />
+                                ) : (
+                                  <ThinkingDotsLoader />
+                                )
                               ) : (
-                                <MessageFormatter
-                                  content={message.content}
-                                  isStreaming={isStreamingAssistant}
-                                />
+                                <>
+                                  <MessageFormatter
+                                    content={message.content}
+                                    isStreaming={isStreamingAssistant}
+                                  />
+                                  {activeTool?.messageId === message.id ? (
+                                    <ToolStatusBanner
+                                      logo={activeTool.logo}
+                                      reason={activeTool.reason}
+                                    />
+                                  ) : null}
+                                </>
                               )}
-                              {activeTool?.messageId === message.id ? (
-                                <ToolStatusBanner
-                                  logo={activeTool.logo}
-                                  reason={activeTool.reason}
-                                />
-                              ) : null}
                               {memoryBadgeSessionId === activeMemorySessionId &&
                               message.id === displayMessages[displayMessages.length - 1]?.id ? (
                                 <MemoryCompressionBadge visible />

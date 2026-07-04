@@ -239,3 +239,23 @@ textarea {
 .tool-status-banner {
   animation: toolStatusFadeIn 180ms ease-out both;
 }
+
+/* --- Left-to-right text shimmer animation --- */
+@keyframes textShimmer {
+  0% {
+    background-position: -150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+.reason-shimmer-text {
+  background: linear-gradient(90deg, #777777 25%, #E2E8F0 50%, #777777 75%);
+  background-size: 150% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textShimmer 2.2s linear infinite;
+  display: inline-block;
+}

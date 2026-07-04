@@ -42,8 +42,15 @@ def get_latest_facts_file() -> Path | None:
     if not jsonl_files:
         return None
 
-    # Sort by filename (which includes the timestamp) and pick the latest
-    jsonl_files.sort()
+    import re
+    def get_timestamp(p):
+        match = re.search(r'_session_(\d+)_', p.name)
+        if match:
+            return int(match.group(1))
+        return int(p.stat().st_mtime * 1000)
+
+    # Sort by the extracted session timestamp to handle different date prefixes correctly
+    jsonl_files.sort(key=get_timestamp)
     latest_file = jsonl_files[-1]
     return latest_file
 

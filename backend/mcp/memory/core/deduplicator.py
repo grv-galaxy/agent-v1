@@ -265,6 +265,49 @@ def dedup_batch(
     to_append_subjects: list[str] = []
 
     for (idx, cand), vec in zip(needs_embedding, vectors):
+        in_batch_match_found = False
+
+        # 3a. Cross-check against genuinely new items already collected in this SAME batch
+        if to_append_ids:
+            batch_vecs = np.vstack(to_append_vecs)
+            norms = np.linalg.norm(batch_vecs, axis=1, keepdims=True)
+            normed_batch = batch_vecs / np.clip(norms, 1e-8, None)
+            
+            q = np.array(vec, dtype=np.float32)
+            q = q / max(np.linalg.norm(q), 1e-8)
+            sims = normed_batch @ q
+            
+            # Same subject check within batch
+            mask = np.array([s.lower() == cand.subject.lower() for s in to_append_subjects])
+            masked_sims = np.where(mask, sims, -1.0)
+            
+            if masked_sims.size > 0:
+                best_idx = np.argmax(masked_sims)
+                if masked_sims[best_idx] >= SEMANTIC_MATCH_THRESHOLD:
+                    results[idx] = DedupResult(
+                        candidate=cand,
+                        outcome=DedupOutcome.SEMANTIC_MATCH,
+                        matched_id=to_append_ids[best_idx],
+                        similarity=float(masked_sims[best_idx]),
+                    )
+                    in_batch_match_found = True
+            
+            # Cross-namespace check within batch
+            if not in_batch_match_found and sims.size > 0:
+                best_idx_any = np.argmax(sims)
+                if sims[best_idx_any] >= CROSS_NAMESPACE_THRESHOLD:
+                    results[idx] = DedupResult(
+                        candidate=cand,
+                        outcome=DedupOutcome.CROSS_NAMESPACE_MATCH,
+                        matched_id=to_append_ids[best_idx_any],
+                        similarity=float(sims[best_idx_any]),
+                    )
+                    in_batch_match_found = True
+
+        if in_batch_match_found:
+            continue
+
+        # 3b. Check the global cache
         same_subject_matches = cache.top_matches(vec, k=1, subject=cand.subject)
         if same_subject_matches and same_subject_matches[0][1] >= SEMANTIC_MATCH_THRESHOLD:
             matched_id, sim = same_subject_matches[0]

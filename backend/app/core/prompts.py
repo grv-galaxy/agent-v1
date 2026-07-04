@@ -181,6 +181,8 @@ EXTRACTION RULES
 
 Only extract information directly supported by the conversation.
 
+Do NOT extract arbitrary, trivial, or useless facts. Only extract meaningful information that has a clear, actionable use-case for future reference.
+
 Never hallucinate.
 
 Never guess.
@@ -382,15 +384,13 @@ The goal is to preserve conversational continuity with minimal information loss.
 OBJECTIVE 2 — LONG-TERM MEMORY EXTRACTION
 ===============================================================================
 
-The ONLY source of truth for long-term memory extraction is the
-NEW CONVERSATION CHUNK.
+You must use BOTH the EXISTING SUMMARY and the NEW CONVERSATION CHUNK to extract Long-Term Memories.
 
-The EXISTING SUMMARY exists ONLY to update the rolling conversational state.
+The EXISTING SUMMARY provides the necessary historical context to fully understand the events, decisions, and facts being discussed in the NEW CONVERSATION CHUNK.
 
-Never use the EXISTING SUMMARY as evidence when extracting long-term memories.
+Extract only meaningful, high-value long-term memory candidates that are established or updated in the NEW CONVERSATION CHUNK, using the summary to resolve references and context.
 
-Extract only long-term memory candidates explicitly supported by the
-NEW CONVERSATION CHUNK.
+Do NOT extract arbitrary, trivial, or useless facts. Only extract information that has a clear, actionable use-case for future reference. If a fact does not provide significant value to a future AI assistant, DO NOT extract it.
 
 Any duplicate detection, semantic similarity checking, memory merging,
 memory updating, or conflict resolution with previously stored memories
@@ -491,7 +491,9 @@ If a category contains no entities, return ["NONE"].
 EXTRACTION RULES
 ===============================================================================
 
-Only extract information explicitly supported by the NEW CONVERSATION CHUNK.
+Only extract information explicitly supported by the NEW CONVERSATION CHUNK, using the EXISTING SUMMARY for context resolution.
+
+Do NOT extract arbitrary, trivial, or useless facts. Only extract meaningful information that has a clear, actionable use-case for future reference.
 
 Never hallucinate.
 

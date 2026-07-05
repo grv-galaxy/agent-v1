@@ -1,27 +1,3 @@
-2026-07-04T18:45:53 [INFO] ltm.handlers: Queue Fetcher found file 20260702_0702_session_1782975639517_wf36bkset.jsonl with 2 facts.
-2026-07-04T18:45:54 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['d7f0e9a3c5583861d2426511', '20f33efd8cc1a9a254d472f1']
-2026-07-04T18:45:54 [INFO] ltm.handlers: Successfully archived processed queue file: 20260702_0702_session_1782975639517_wf36bkset.jsonl
-2026-07-04T18:57:00 [INFO] ltm.handlers: Queue Fetcher found file 20260704_1317_session_1783170954812_3wyzc6d6w.jsonl with 1 facts.
-2026-07-04T18:57:01 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['e0447264d8d4febf42d7307a', '30feb82191d53fd6cc2db25e', 'a92121f310b9608d24143556', 'd7f0e9a3c5583861d2426511']
-2026-07-04T18:57:01 [INFO] ltm.handlers: Successfully archived processed queue file: 20260704_1317_session_1783170954812_3wyzc6d6w.jsonl
-2026-07-04T19:18:13 [INFO] ltm.handlers: Queue Fetcher found file 20260702_0701_session_1782975639517_wf36bkset.jsonl with 1 facts.
-2026-07-04T19:18:13 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['c3f05eb21febb40511a291ec']
-2026-07-04T19:18:13 [INFO] ltm.handlers: Successfully archived processed queue file: 20260702_0701_session_1782975639517_wf36bkset.jsonl
-2026-07-04T20:51:24 [INFO] ltm.handlers: Queue Fetcher found file 20260702_0609_session_1782972465348_2j7donek2.jsonl with 2 facts.
-2026-07-04T20:51:24 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['898c4ad165a42804cde9a98f', '0eb9335714e7a4f64ae80f13', '759c5af270fc8f5e54bc2bea', 'd7f0e9a3c5583861d2426511', '30feb82191d53fd6cc2db25e']
-2026-07-04T20:51:24 [INFO] ltm.handlers: Successfully archived processed queue file: 20260702_0609_session_1782972465348_2j7donek2.jsonl
-2026-07-04T21:21:01 [INFO] ltm.handlers: Queue Fetcher found file 20260702_0608_session_1782972465348_2j7donek2.jsonl with 1 facts.
-2026-07-04T21:21:01 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['759c5af270fc8f5e54bc2bea', 'd7f0e9a3c5583861d2426511', '30feb82191d53fd6cc2db25e']
-2026-07-04T21:21:01 [INFO] ltm.handlers: Successfully archived processed queue file: 20260702_0608_session_1782972465348_2j7donek2.jsonl
-2026-07-04T21:29:05 [INFO] ltm.handlers: Queue Fetcher found file 20260704_1554_session_1783180359645_p3krpim0q.jsonl with 1 facts.
-2026-07-04T21:29:05 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['a95e753ddfb60f7c3bc868b1', '30feb82191d53fd6cc2db25e', 'd7f0e9a3c5583861d2426511']
-2026-07-04T21:29:05 [INFO] ltm.handlers: Successfully archived processed queue file: 20260704_1554_session_1783180359645_p3krpim0q.jsonl
-2026-07-05T17:04:03 [INFO] ltm.handlers: Queue Fetcher found file 20260704_1555_session_1783180271549_t12dcw3m0.jsonl with 1 facts.
-2026-07-05T17:04:03 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['d7f0e9a3c5583861d2426511']
-2026-07-05T17:04:03 [INFO] ltm.handlers: Successfully archived processed queue file: 20260704_1555_session_1783180271549_t12dcw3m0.jsonl
-2026-07-05T17:19:46 [INFO] ltm.handlers: Queue Fetcher found file 20260702_0549_session_1782971282244_fmjmde5uk.jsonl with 1 facts.
-2026-07-05T17:19:47 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['6fa54f711c1696dea35fe4ab', 'b837832fb1b94a078dbd249d', 'be3ab19131a9bbfe193cb774', 'd7f0e9a3c5583861d2426511', '30feb82191d53fd6cc2db25e']
-2026-07-05T17:19:47 [INFO] ltm.handlers: Successfully archived processed queue file: 20260702_0549_session_1782971282244_fmjmde5uk.jsonl
-2026-07-05T17:22:02 [INFO] ltm.handlers: Queue Fetcher found file 20260701_1609_session_1782922103023_oat5cyezr.jsonl with 3 facts.
-2026-07-05T17:22:02 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['39f3e8510a7885b9ec8162b1', '706b8490f03169584b8c9541', '20f33efd8cc1a9a254d472f1', 'd7f0e9a3c5583861d2426511']
-2026-07-05T17:22:02 [INFO] ltm.handlers: Successfully archived processed queue file: 20260701_1609_session_1782922103023_oat5cyezr.jsonl
+2026-07-05T18:37:26 [INFO] ltm.handlers: Queue Fetcher found file 20260701_0617_session_1782886525153_2at7116uy.jsonl with 2 facts.
+2026-07-05T18:37:26 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['20005ef9581e337333ced7de', 'a191e9abd1efa50effa2e6b6', '5ffb93bc5ee8d41ee127c932']
+2026-07-05T18:37:26 [INFO] ltm.handlers: Successfully archived processed queue file: 20260701_0617_session_1782886525153_2at7116uy.jsonl

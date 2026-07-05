@@ -290,12 +290,13 @@ function SidebarNavItem({ item, onClick }) {
         type="button"
         aria-label={item.label}
         title={item.label}
-        onClick={item.label === 'New chat' ? onClick : undefined}
+        onClick={onClick}
         className="flex h-8 w-full items-center gap-3 rounded-[6px] px-2 text-left text-[14px] font-normal text-[#A0A0A0] transition duration-150 hover:bg-[#141414] hover:text-[#E8E8E8]"
       >
         <Icon name={item.icon} className="h-4 w-4 shrink-0 text-[#666666]" />
         <span className="truncate">{item.label}</span>
       </button>
+
       {isPhoneConnect ? (
         <div className="pointer-events-none absolute left-[calc(100%+8px)] top-1/2 z-50 max-w-[calc(100vw-320px)] -translate-y-1/2 overflow-hidden text-ellipsis whitespace-nowrap rounded-[6px] border border-[#2A2A2A] bg-[#1A1A1A] px-[10px] py-[6px] text-[12px] text-[#E8E8E8] opacity-0 transition-opacity delay-[400ms] duration-150 group-hover/nav:opacity-100 group-hover/nav:delay-[400ms]">
           {item.tooltip}
@@ -644,6 +645,15 @@ export default function ChatPage({
   const [memoryBadgeSessionId, setMemoryBadgeSessionId] = useState(null);
   const [toolThinking, setToolThinking] = useState(null);
   const [activeTool, setActiveTool] = useState(null);
+
+  // --- SEARCH STATES ---
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+  const [totalSearchMatches, setTotalSearchMatches] = useState(0);
+  const searchInputRef = useRef(null);
+  const searchMatchElementsRef = useRef([]);
+  // ---------------------
   const assistantMessageIdRef = useRef(0);
   const activeAssistantMessageIdRef = useRef(null);
   const interruptedMessageIdRef = useRef(null);
@@ -767,6 +777,104 @@ export default function ChatPage({
     return () => clearTimeout(timer);
   }, [activeSession]);
   // --- END SESSION PERSISTENCE HOOKS ---
+
+  // --- LOCAL SEARCH HOOKS ---
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
+      if (e.key === 'Escape' && isSearchOpen) {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchOpen]);
+
+  // TreeWalker highlighter
+  useEffect(() => {
+    // Clean up old marks
+    document.querySelectorAll('mark.chat-search-highlight').forEach(mark => {
+      const parent = mark.parentNode;
+      if (parent) {
+        parent.replaceChild(document.createTextNode(mark.textContent), mark);
+        parent.normalize();
+      }
+    });
+    searchMatchElementsRef.current = [];
+    if (!searchQuery || !isSearchOpen) {
+      if (totalSearchMatches !== 0) setTotalSearchMatches(0);
+      return;
+    }
+
+    let matchCount = 0;
+    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const containers = document.querySelectorAll('.message-content-container');
+    
+    containers.forEach(container => {
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+      const textNodes = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.parentNode.nodeName !== 'SCRIPT' && node.parentNode.nodeName !== 'STYLE' && node.parentNode.nodeName !== 'MARK') {
+          textNodes.push(node);
+        }
+      }
+
+      textNodes.forEach(textNode => {
+        const text = textNode.nodeValue;
+        if (regex.test(text)) {
+          const fragment = document.createDocumentFragment();
+          let lastIdx = 0;
+          text.replace(regex, (match, p1, offset) => {
+            fragment.appendChild(document.createTextNode(text.slice(lastIdx, offset)));
+            const mark = document.createElement('mark');
+            mark.className = `chat-search-highlight px-0.5 rounded-sm ${matchCount === currentSearchIndex ? 'bg-orange-500 text-white' : 'bg-yellow-400 text-black'}`;
+            mark.id = `search-match-${matchCount}`;
+            mark.textContent = match;
+            fragment.appendChild(mark);
+            searchMatchElementsRef.current.push(mark);
+            matchCount++;
+            lastIdx = offset + match.length;
+          });
+          fragment.appendChild(document.createTextNode(text.slice(lastIdx)));
+          if (textNode.parentNode) {
+            textNode.parentNode.replaceChild(fragment, textNode);
+          }
+        }
+      });
+    });
+
+    if (totalSearchMatches !== matchCount) {
+      setTotalSearchMatches(matchCount);
+    }
+  }, [searchQuery, isSearchOpen, displayMessages, currentSearchIndex]);
+
+  const handleNextSearch = () => {
+    if (totalSearchMatches === 0) return;
+    const nextIdx = (currentSearchIndex + 1) % totalSearchMatches;
+    setCurrentSearchIndex(nextIdx);
+    setTimeout(() => {
+      const el = document.getElementById(`search-match-${nextIdx}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+
+  const handlePrevSearch = () => {
+    if (totalSearchMatches === 0) return;
+    const prevIdx = (currentSearchIndex - 1 + totalSearchMatches) % totalSearchMatches;
+    setCurrentSearchIndex(prevIdx);
+    setTimeout(() => {
+      const el = document.getElementById(`search-match-${prevIdx}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  };
+  // --- END LOCAL SEARCH HOOKS ---
 
   useEffect(() => {
     if (!memoryBadgeSessionId) {
@@ -1419,6 +1527,42 @@ export default function ChatPage({
 
   return (
     <main className="flex h-screen overflow-hidden bg-[#0D0D0D] font-sans text-[#E8E8E8]">
+      {/* --- IN-CHAT SEARCH UI --- */}
+      {isSearchOpen && (
+        <div className="absolute top-4 right-8 z-50 flex items-center bg-[#1A1A1A] border border-[#333] rounded-md shadow-lg p-1.5 animate-in fade-in slide-in-from-top-4">
+          <input 
+            ref={searchInputRef}
+            type="text" 
+            className="bg-transparent border-none outline-none text-[13px] text-white px-2 w-48 placeholder-[#666]" 
+            placeholder="Find in chat..."
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentSearchIndex(0); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (e.shiftKey) handlePrevSearch();
+                else handleNextSearch();
+              }
+            }}
+          />
+          {searchQuery && (
+            <span className="text-[11px] text-[#888] mr-2 whitespace-nowrap">
+              {totalSearchMatches > 0 ? `${currentSearchIndex + 1} of ${totalSearchMatches}` : '0 of 0'}
+            </span>
+          )}
+          <div className="flex border-l border-[#333] pl-1 gap-1">
+            <button onClick={handlePrevSearch} className="p-1 hover:bg-[#2A2A2A] rounded text-[#888] hover:text-[#D6D6D6] transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+            </button>
+            <button onClick={handleNextSearch} className="p-1 hover:bg-[#2A2A2A] rounded text-[#888] hover:text-[#D6D6D6] transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <button onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }} className="p-1 hover:bg-[#2A2A2A] rounded text-[#888] hover:text-white ml-1 transition-colors">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
+      {/* --- END IN-CHAT SEARCH UI --- */}
       <aside
         className={`drag-region flex shrink-0 overflow-hidden bg-[#080808] transition-[width] duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)] ${
           isSidebarCollapsed
@@ -1445,7 +1589,19 @@ export default function ChatPage({
 
           <nav className="no-drag space-y-1 px-3 pt-4">
             {NAV_ITEMS.map((item) => (
-              <SidebarNavItem key={item.label} item={item} onClick={startNewChat} />
+              <SidebarNavItem 
+                key={item.label} 
+                item={item} 
+                onClick={
+                  item.label === 'Search' 
+                    ? () => { 
+                        setIsSearchOpen(true); 
+                        setTimeout(() => searchInputRef.current?.focus(), 50); 
+                        if (window.innerWidth < 1024) toggleSidebar(); 
+                      } 
+                    : startNewChat
+                } 
+              />
             ))}
           </nav>
 
@@ -1602,7 +1758,7 @@ export default function ChatPage({
 
                         if (isUser) {
                           return (
-                            <div key={message.id} className={`${CONTENT_OFFSET} flex max-w-[760px]} justify-end`}>
+                            <div key={message.id} className={`${CONTENT_OFFSET} message-content-container flex max-w-[760px]} justify-end`}>
                               <div className="max-w-[75%] rounded-[18px_18px_4px_18px] bg-[#6366F1] px-4 py-3 text-[15px] leading-6 text-white">
                                 {message.content}
                               </div>
@@ -1620,7 +1776,7 @@ export default function ChatPage({
                                 {providerInitial}
                               </div>
                             </div>
-                            <div className="min-w-0 max-w-[760px]">
+                            <div className="message-content-container min-w-0 max-w-[760px]">
                               {isWaitingForFirstChunk &&
                               message.id === `assistant-${assistantMessageIdRef.current}` &&
                               message.content === '' ? (

@@ -1,0 +1,56 @@
+{
+  "id": "session_1783252234664_suu6ceh4b",
+  "session_id": "session_1783252234664_suu6ceh4b",
+  "title": "try",
+  "startedAt": "2026-07-05T11:50:34.664Z",
+  "displayMessages": [
+    {
+      "id": "d28b2046-af13-4574-be03-06d1bb4be174",
+      "role": "user",
+      "content": "hey"
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "content": "Hey! How can I help you today?"
+    },
+    {
+      "id": "bff189c7-d897-4edf-a65d-a0556ba30f07",
+      "role": "user",
+      "content": "how are u"
+    },
+    {
+      "id": "assistant-2",
+      "role": "assistant",
+      "content": "I'm doing great, thanks for asking! How can I assist you today?"
+    }
+  ],
+  "contextMessages": [
+    {
+      "id": "d28b2046-af13-4574-be03-06d1bb4be174",
+      "role": "user",
+      "content": "hey"
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "content": "Hey! How can I help you today?"
+    },
+    {
+      "id": "bff189c7-d897-4edf-a65d-a0556ba30f07",
+      "role": "user",
+      "content": "how are u"
+    },
+    {
+      "id": "assistant-2",
+      "role": "assistant",
+      "content": "I'm doing great, thanks for asking! How can I assist you today?"
+    }
+  ],
+  "rolling_summary": "",
+  "compression_epoch": 0,
+  "summary_history": [],
+  "hasUserTitle": true,
+  "pinned": false,
+  "archived": false
+}

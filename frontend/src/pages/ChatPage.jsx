@@ -10,6 +10,7 @@ const CHAT_ENDPOINT =
   import.meta.env.VITE_CHAT_URL ||
   `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/chat`;
 const CONFIG_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/config`;
+const SESSIONS_ENDPOINT = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/api/sessions`;
 
 const PROJECT_NAME = 'agent';
 const USER_NAME = 'local';
@@ -724,6 +725,49 @@ export default function ChatPage({
     }
   }, [displayMessages, isStreaming]);
 
+  // --- SESSION PERSISTENCE HOOKS ---
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const response = await fetch(SESSIONS_ENDPOINT);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0) {
+            setSessions(data);
+            setActiveSessionId(data[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load sessions from backend:', error);
+      }
+    };
+    fetchSessions();
+  }, []);
+
+  useEffect(() => {
+    if (!activeSession) return;
+    
+    // Skip saving perfectly empty pristine sessions
+    if (activeSession.displayMessages.length === 0 && !activeSession.rolling_summary && activeSession.title === 'New chat') {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        await fetch(SESSIONS_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(activeSession)
+        });
+      } catch (error) {
+        console.error('Failed to auto-save session:', error);
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [activeSession]);
+  // --- END SESSION PERSISTENCE HOOKS ---
+
   useEffect(() => {
     if (!memoryBadgeSessionId) {
       return undefined;
@@ -900,6 +944,9 @@ export default function ChatPage({
     setDeleteConfirmId(null);
     resetComposerDraft();
     setErrorMessage('');
+
+    // Delete from backend
+    fetch(`${SESSIONS_ENDPOINT}/${sessionId}`, { method: 'DELETE' }).catch(e => console.error(e));
   }
 
   function requestDeleteSession(sessionId) {

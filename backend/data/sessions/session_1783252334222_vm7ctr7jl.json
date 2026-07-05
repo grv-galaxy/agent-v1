@@ -1,0 +1,36 @@
+{
+  "id": "session_1783252334222_vm7ctr7jl",
+  "session_id": "session_1783252334222_vm7ctr7jl",
+  "title": "New Chat",
+  "startedAt": "2026-07-05T11:52:14.222Z",
+  "displayMessages": [
+    {
+      "id": "7de44541-d2e5-4bbe-9e3b-a9e0f1f15c34",
+      "role": "user",
+      "content": "New Chat"
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?"
+    }
+  ],
+  "contextMessages": [
+    {
+      "id": "7de44541-d2e5-4bbe-9e3b-a9e0f1f15c34",
+      "role": "user",
+      "content": "New Chat"
+    },
+    {
+      "id": "assistant-1",
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?"
+    }
+  ],
+  "rolling_summary": "",
+  "compression_epoch": 0,
+  "summary_history": [],
+  "hasUserTitle": true,
+  "pinned": false,
+  "archived": false
+}

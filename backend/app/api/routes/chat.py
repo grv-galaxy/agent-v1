@@ -105,6 +105,15 @@ async def stream_chat_response(req: ChatRequest):
         else:
             final_system_prompt = base_system_prompt + FIRST_TURN_SYSTEM_PROMPT
 
+        # 🧠 Global Date Injection
+        import datetime
+        current_date_str = datetime.date.today().strftime("%Y-%m-%d")
+        final_system_prompt += (
+            f"\n\nSystem Information: The current date is {current_date_str}. "
+            "Do not explicitly mention this date unless requested, but use it as your absolute present time context "
+            "when identifying current role holders, politicians, or answering time-sensitive queries."
+        )
+
         messages_list.insert(0, {"role": "system", "content": final_system_prompt})
 
         # Log if messages were dropped (useful for production debugging)
@@ -227,14 +236,99 @@ async def stream_chat_response(req: ChatRequest):
                                     skill_content=skill_content,
                                     user_query=_user_query,
                                 )
-                                # Stream the skill-grounded answer as normal chunks
+                                sk_intercept_buffer = ""
+                                sk_intercepting = False
+
                                 async for sk_chunk in provider_instance.generate_stream(
                                     model_name, grounded_msgs
                                 ):
                                     sk_text = sk_chunk.get("text", "")
-                                    if sk_text:
-                                        completion_text_accum += sk_text
-                                        yield f"data: {json.dumps({'chunk': sk_text})}\n\n"
+                                    if not sk_text:
+                                        continue
+
+                                    if sk_intercepting:
+                                        sk_intercept_buffer += sk_text
+                                        close_idx = sk_intercept_buffer.find(CLOSE_TAG)
+                                        if close_idx != -1:
+                                            raw_json = sk_intercept_buffer[:close_idx].strip()
+                                            leftover = sk_intercept_buffer[close_idx + len(CLOSE_TAG):]
+                                            try:
+                                                parsed = json.loads(raw_json)
+                                                if parsed.get("tool") == "wikipedia_search":
+                                                    yield f"data: {json.dumps({'tool_status': {'logo': parsed.get('logo', 'Searching'), 'reason': parsed.get('reason', ''), 'tool': 'wikipedia_search', 'skill_name': ''}})}\n\n"
+                                                    import importlib.util
+                                                    from pathlib import Path
+                                                    
+                                                    backend_root = Path(__file__).resolve().parent.parent.parent.parent
+                                                    tool_path = backend_root / "mcp" / "search" / "wikipedia" / "search_tool.py"
+                                                    
+                                                    spec = importlib.util.spec_from_file_location("search_tool", str(tool_path))
+                                                    search_module = importlib.util.module_from_spec(spec)
+                                                    spec.loader.exec_module(search_module)
+                                                    
+                                                    wiki_res = search_module.wikipedia_search(parsed.get("query", ""))
+                                                    
+                                                    yield f"data: {json.dumps({'tool_status': {'logo': 'Wikipedia', 'reason': 'Synthesizing knowledge...', 'tool': 'wikipedia_search', 'skill_name': ''}})}\n\n"
+                                                    
+                                                    try:
+                                                        user_query = parsed.get("query", "")
+                                                        synth_provider = ProviderFactory.create(provider_name, api_key)
+                                                        
+                                                        # Token & Format Optimization: Route by Table vs Body
+                                                        has_table = wiki_res.get("facts") and len(wiki_res["facts"]) > 0
+                                                        if has_table:
+                                                            synth_prompt = skill_prompts.WIKIPEDIA_SYNTHESIS_PROMPT_TABLE.format(user_query=user_query)
+                                                            synth_data = {"title": wiki_res.get("title"), "facts": wiki_res.get("facts")}
+                                                        else:
+                                                            synth_prompt = skill_prompts.WIKIPEDIA_SYNTHESIS_PROMPT_BODY.format(user_query=user_query)
+                                                            synth_data = {"title": wiki_res.get("title"), "points": wiki_res.get("points")}
+
+                                                        synth_msg = [
+                                                            {"role": "system", "content": synth_prompt},
+                                                            {"role": "user", "content": f"Raw data:\n{json.dumps(synth_data)}"}
+                                                        ]
+                                                        synth_resp = await synth_provider.generate_response(model=model_name, messages=synth_msg, temperature=0.3)
+                                                        wiki_res["synthesis"] = synth_resp.get("text", "").strip()
+                                                    except Exception as e:
+                                                        wiki_res["synthesis"] = f"Synthesis failed ({str(e)}). Please refer to facts."
+
+                                                    result_json = json.dumps(wiki_res, indent=2)
+                                                    formatted_output = f"\n```wikipedia\n{result_json}\n```\n"
+                                                    completion_text_accum += formatted_output
+                                                    yield f"data: {json.dumps({'chunk': formatted_output})}\n\n"
+                                            except Exception as e:
+                                                err_msg = f"\n> ⚠️ Error: {e}\n\n"
+                                                completion_text_accum += err_msg
+                                                yield f"data: {json.dumps({'chunk': err_msg})}\n\n"
+
+                                            sk_intercepting = False
+                                            sk_intercept_buffer = ""
+                                            if leftover.strip():
+                                                completion_text_accum += leftover
+                                                yield f"data: {json.dumps({'chunk': leftover})}\n\n"
+                                    else:
+                                        candidate = sk_intercept_buffer + sk_text
+                                        sk_intercept_buffer = ""
+                                        open_idx = candidate.find(OPEN_TAG)
+                                        if open_idx != -1:
+                                            before = candidate[:open_idx]
+                                            if before:
+                                                completion_text_accum += before
+                                                yield f"data: {json.dumps({'chunk': before})}\n\n"
+                                            sk_intercept_buffer = candidate[open_idx + len(OPEN_TAG):]
+                                            sk_intercepting = True
+                                        else:
+                                            safe_len = max(0, len(candidate) - len(OPEN_TAG))
+                                            safe_text = candidate[:safe_len]
+                                            held_back = candidate[safe_len:]
+                                            if safe_text:
+                                                completion_text_accum += safe_text
+                                                yield f"data: {json.dumps({'chunk': safe_text})}\n\n"
+                                            sk_intercept_buffer = held_back
+
+                                if sk_intercept_buffer and not sk_intercepting:
+                                    completion_text_accum += sk_intercept_buffer
+                                    yield f"data: {json.dumps({'chunk': sk_intercept_buffer})}\n\n"
                             else:
                                 # Skill file missing — tell the user gracefully
                                 fallback = (
@@ -260,6 +354,8 @@ async def stream_chat_response(req: ChatRequest):
                                 )
                             completion_text_accum += result_text
                             yield f"data: {json.dumps({'chunk': result_text})}\n\n"
+
+
 
                     except json.JSONDecodeError:
                         # Malformed JSON — drop it silently (never leak to user)

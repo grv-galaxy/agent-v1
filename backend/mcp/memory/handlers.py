@@ -161,7 +161,7 @@ def execute_pipeline_with_lock(
 
             logger.info(f"Ingesting batch window: {len(raw_facts_batch)} structured log entries found ({current_offset} -> {final_offset} bytes).")
         else:
-            # Fallback queue-based fetcher logic: read the latest session file chronologically
+            # Fallback queue-based fetcher logic: read all unprocessed session files chronologically
             raw_lines, latest_file = fetcher.read_latest_facts()
             if not latest_file:
                 logger.info("No queue session files found in facts directory.")
@@ -173,17 +173,18 @@ def execute_pipeline_with_lock(
                     try:
                         raw_facts_batch.append(json.loads(line.strip()))
                     except json.JSONDecodeError as e:
-                        logger.warning(f"Failed to parse json line from {latest_file.name}: {e}")
+                        logger.warning(f"Failed to parse json line: {e}")
             
             if not raw_facts_batch:
-                # If file is empty or invalid, let's archive it so it doesn't block the queue
-                logger.warning(f"Queue file {latest_file.name} contains no valid JSON facts. Archiving to clear queue.")
+                # If files are empty or invalid, let's archive them so they don't block the queue
+                logger.warning("Queue files contain no valid JSON facts. Archiving to clear queue.")
                 fetcher.archive_processed_file(latest_file)
                 return None
 
-            # Temporarily set this so we know which file to archive on success
+            # Temporarily set this so we know which files to archive on success
             facts_jsonl_path = latest_file
-            logger.info(f"Queue Fetcher found file {latest_file.name} with {len(raw_facts_batch)} facts.")
+            file_names = ", ".join(f.name for f in latest_file) if isinstance(latest_file, list) else latest_file.name
+            logger.info(f"Queue Fetcher found file(s) {file_names} with {len(raw_facts_batch)} facts.")
 
         # Step 3: Establish connection context handles via storage API
         conn = storage.connect(db_path)
@@ -213,10 +214,11 @@ def execute_pipeline_with_lock(
             elif facts_jsonl_path is not None and cursor_path is None:
                 # Archive the processed session file to keep the input queue directory clean
                 archive_success = fetcher.archive_processed_file(facts_jsonl_path)
+                file_names = ", ".join(f.name for f in facts_jsonl_path) if isinstance(facts_jsonl_path, list) else facts_jsonl_path.name
                 if archive_success:
-                    logger.info(f"Successfully archived processed queue file: {facts_jsonl_path.name}")
+                    logger.info(f"Successfully archived processed queue file(s): {file_names}")
                 else:
-                    logger.error(f"Failed to archive processed queue file: {facts_jsonl_path.name}")
+                    logger.error(f"Failed to archive processed queue file(s): {file_names}")
             
             return summary
 

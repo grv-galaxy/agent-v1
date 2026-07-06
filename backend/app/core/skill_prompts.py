@@ -16,6 +16,26 @@ Each prompt tells the LLM:
 from typing import Optional
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Tool-specific prompts
+# ──────────────────────────────────────────────────────────────────────────────
+WIKIPEDIA_SYNTHESIS_PROMPT_TABLE = """\
+You are an official Wikipedia synthesizer. The user asked: "{user_query}"
+You have been provided with the raw JSON "Key Facts" table from Wikipedia. \
+Based on this table ONLY, synthesize a short, sharp, and highly detailed introductory summary to answer the user's query. \
+Translate complex or technical table headers (like "Incumbent") into simple, easy-to-understand terms (like "Current Leader" or "Current"). \
+Do NOT write bulky paragraphs. Use clean, simple, and punchy bullet points. \
+Return ONLY the synthesized text, nothing else.\
+"""
+
+WIKIPEDIA_SYNTHESIS_PROMPT_BODY = """\
+You are an official Wikipedia synthesizer. The user asked: "{user_query}"
+You have been provided with the raw Wikipedia text body because no facts table was available. \
+Based on this text, synthesize a short, sharp, and highly detailed introductory summary to answer the user's query. \
+Do NOT write bulky paragraphs. Use clean, simple, and punchy bullet points. \
+Return ONLY the synthesized text, nothing else.\
+"""
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Per-skill framing templates
 # {skill_content} and {user_query} are injected by build_grounded_messages()
 # ──────────────────────────────────────────────────────────────────────────────
@@ -106,6 +126,21 @@ and preferences.
 === END OF USER PROFILE ===
 
 Now answer the user's request below, incorporating their profile data where relevant.
+
+User request: {user_query}
+""",
+
+    "search_skill": """\
+You are a specialized search execution assistant.
+
+You have been given authoritative skill instructions below that define the search tools available to you.
+
+=== SKILL INSTRUCTIONS ===
+{skill_content}
+=== END OF SKILL INSTRUCTIONS ===
+
+Based on the user's request, formulate the correct search query and execute the search tool by outputting the `@jsonstart` block as instructed.
+Because the search results will be streamed directly to the user's interface, you DO NOT need to synthesize an answer or write any conversational text. Simply output the tool call block and stop.
 
 User request: {user_query}
 """,

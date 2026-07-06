@@ -44,6 +44,12 @@ You are given a JSON object called `available_skills`, where each entry has:
       "description": "Use when you need to see information about the user, their preferences, identity, or background.",
       "location": "backend/data/user/user_data.md",
       "triggers": ["user data", "user info", "my preferences", "who am i", "my details", "about me"]
+    },
+    {
+      "name": "search_skill",
+      "description": "Use when the user asks for factual information, current events, biographies, or needs data from external sources.",
+      "location": "/skills/search_skill/SKILL.md",
+      "triggers": ["search", "who is", "what is", "current", "facts"]
     }
   ]
 }

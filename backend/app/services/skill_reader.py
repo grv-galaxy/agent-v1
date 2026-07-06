@@ -21,6 +21,7 @@ SKILL_REGISTRY: dict[str, Path] = {
     "pptx":      _BACKEND_ROOT / "skills" / "pptx" / "SKILL.md",
     "xlsx":      _BACKEND_ROOT / "skills" / "xlsx" / "SKILL.md",
     "pdf":       _BACKEND_ROOT / "skills" / "pdf"  / "SKILL.md",
+    "search_skill": _BACKEND_ROOT / "skills" / "search_skill" / "SKILL.md",
     "user_data": _BACKEND_ROOT / "data"   / "user" / "user_data.md",
 }
 
@@ -30,6 +31,7 @@ SKILL_DESCRIPTIONS: dict[str, str] = {
     "pptx":      "Create or edit PowerPoint presentations (.pptx) — slides, charts, speaker notes.",
     "xlsx":      "Create, edit, or analyze Excel spreadsheets (.xlsx, .csv) — formulas, charts, pivot tables.",
     "pdf":       "Create, read, merge, split, or watermark PDF files — OCR, forms, encryption.",
+    "search_skill": "Search for factual information, current events, biographies, and objective data.",
     "user_data": "Access user profile information, preferences, and background.",
 }
 

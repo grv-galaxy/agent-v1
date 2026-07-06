@@ -1,0 +1,3 @@
+"""
+Wikipedia search tool module.
+"""

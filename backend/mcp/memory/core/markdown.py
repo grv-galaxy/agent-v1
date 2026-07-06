@@ -34,8 +34,8 @@ from .models import DirtySection, DirtySet, SectionKind
 # Relation -> section classification (placeholder, see module docstring)
 # ----------------------------------------------------------------------
 
-IDENTITY_RELATIONS = {"name", "lives_in", "born_in", "age", "occupation", "employed_by", "speaks"}
-PREFERENCE_RELATIONS = {"likes", "dislikes", "prefers_not", "favorite_of"}
+IDENTITY_RELATIONS = {"name", "lives_in", "born_in", "age", "occupation", "employed_by", "speaks", "is", "has", "develops", "learns", "studied"}
+PREFERENCE_RELATIONS = {"likes", "dislikes", "prefers_not", "favorite_of", "mentioned"}
 RELATIONSHIP_RELATIONS = {"married_to", "parent_of", "child_of", "sibling_of", "friend_of", "knows", "works_with"}
 # Anything not in the three sets above, on an episodic-layer triple,
 # is treated as task-progress and routed to a per-task file instead of
@@ -85,7 +85,8 @@ def _now_iso() -> str:
 def _bullet_lines(rows: list[storage.TripleRow]) -> str:
     lines = []
     for r in sorted(rows, key=lambda r: (-r.importance, r.relation)):
-        lines.append(f"- {r.relation.replace('_', ' ')}: {r.object} (confidence: {r.confidence:.2f})")
+        subj_prefix = "" if r.subject == "User" else f"[{r.subject}] "
+        lines.append(f"- {subj_prefix}{r.relation.replace('_', ' ')}: {r.object} (confidence: {r.confidence:.2f})")
     return "\n".join(lines) if lines else "- (none recorded yet)"
 
 

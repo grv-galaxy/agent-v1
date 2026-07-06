@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import CodeBlock from './formatter/CodeBlock.jsx';
 import MathBlock from './formatter/MathBlock.jsx';
 import ThinkBlock from './formatter/ThinkBlock.jsx';
+import WikipediaResult from './formatter/WikipediaResult.jsx';
 
 const safeSchema = {
   ...defaultSchema,
@@ -219,7 +220,10 @@ function getStructuredBlock(value) {
 
   if (/^[{[]/.test(text)) {
     try {
-      JSON.parse(text);
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && ('title' in parsed) && ('facts' in parsed || 'points' in parsed)) {
+        return { language: 'wikipedia', code: parsed };
+      }
       return { language: 'json', code: text };
     } catch {
       // Incomplete streamed JSON should continue rendering as regular markdown.
@@ -290,7 +294,11 @@ function MessageFormatter({ content = '', isStreaming = false }) {
         ))}
 
         {structuredBlock ? (
-          <CodeBlock code={structuredBlock.code} language={structuredBlock.language} />
+          structuredBlock.language === 'wikipedia' ? (
+            <WikipediaResult result={structuredBlock.code} />
+          ) : (
+            <CodeBlock code={structuredBlock.code} language={structuredBlock.language} />
+          )
         ) : (
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
@@ -322,7 +330,15 @@ function MessageFormatter({ content = '', isStreaming = false }) {
               const isBlock = !inline && (className || text.includes('\n'));
 
               if (isBlock) {
-                return <CodeBlock code={text} language={getLanguage(className)} />;
+                const lang = getLanguage(className);
+                if (lang === 'wikipedia') {
+                  try {
+                    return <WikipediaResult result={JSON.parse(text)} />;
+                  } catch {
+                    // Fall back to code block if JSON is invalid
+                  }
+                }
+                return <CodeBlock code={text} language={lang} />;
               }
 
               return (

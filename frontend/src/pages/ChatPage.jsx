@@ -92,7 +92,7 @@ function isNetworkError(error) {
 // ADD THIS NEW FUNCTION:
 function getActiveMemoryConfig() {
   const defaults = { preset: 'balanced', t: 30, r: 10, cap: 800, interval: 5 };
-  const saved = sessionStorage.getItem('agent_memory_config');
+  const saved = localStorage.getItem('agent_memory_config');
   
   if (!saved) return defaults;
   
@@ -654,7 +654,7 @@ export default function ChatPage({
   const searchInputRef = useRef(null);
   const searchMatchElementsRef = useRef([]);
   // ---------------------
-  const assistantMessageIdRef = useRef(0);
+
   const activeAssistantMessageIdRef = useRef(null);
   const interruptedMessageIdRef = useRef(null);
   const isOnlineRef = useRef(isOnline);
@@ -1187,11 +1187,10 @@ export default function ChatPage({
       content,
     };
     const assistantMessage = {
-      id: `assistant-${assistantMessageIdRef.current + 1}`,
+      id: crypto.randomUUID(),
       role: 'assistant',
       content: '',
     };
-    assistantMessageIdRef.current += 1;
     activeAssistantMessageIdRef.current = assistantMessage.id;
     interruptedMessageIdRef.current = null;
 
@@ -1754,7 +1753,7 @@ export default function ChatPage({
                         const isStreamingAssistant =
                           isStreaming &&
                           message.role === 'assistant' &&
-                          message.id === `assistant-${assistantMessageIdRef.current}`;
+                          message.id === activeAssistantMessageIdRef.current;
 
                         if (isUser) {
                           return (
@@ -1778,7 +1777,7 @@ export default function ChatPage({
                             </div>
                             <div className="message-content-container min-w-0 max-w-[760px]">
                               {isWaitingForFirstChunk &&
-                              message.id === `assistant-${assistantMessageIdRef.current}` &&
+                              message.id === activeAssistantMessageIdRef.current &&
                               message.content === '' ? (
                                 activeTool?.messageId === message.id ? (
                                   <ToolStatusSkeletonLoader

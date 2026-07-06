@@ -133,7 +133,7 @@ RELATION_MAP = {
     "into": "likes",
     "hobbies": "likes",
     "hobby": "likes",
-    "prefers": "prefers_not",
+    "prefers": "likes",
     "hates": "dislikes",
     "dislikes": "dislikes",
     "does_not_like": "dislikes",

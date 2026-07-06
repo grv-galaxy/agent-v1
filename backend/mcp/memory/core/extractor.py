@@ -123,11 +123,14 @@ def parse_facts(lines: Iterable[str | dict]) -> list[CandidateTriple]:
             if obj_str.lower() in PRONOUN_FILTERS:
                 continue
 
-            # Step 2: Canonicalize subjects matching user context to "User"
-            if subject_str.lower() in USER_ALIASES:
+            # Step 2: Canonicalize subjects matching user/assistant context
+            subject_lower = subject_str.lower()
+            if subject_lower in USER_ALIASES:
                 subject_str = "User"
+            elif subject_lower in {"assistant", "friday"}:
+                subject_str = "Assistant"
             else:
-                continue  # Drop items where the subject is not the user
+                continue  # Drop items where the subject is not the user or assistant
 
             # Step 3: Sanitize relation vocabulary to lowercase snake_case,
             # then normalize to canonical form so structural dedup hash matches

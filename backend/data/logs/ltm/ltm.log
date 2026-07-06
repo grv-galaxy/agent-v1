@@ -1,3 +1,42 @@
-2026-07-05T18:37:26 [INFO] ltm.handlers: Queue Fetcher found file 20260701_0617_session_1782886525153_2at7116uy.jsonl with 2 facts.
-2026-07-05T18:37:26 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['20005ef9581e337333ced7de', 'a191e9abd1efa50effa2e6b6', '5ffb93bc5ee8d41ee127c932']
-2026-07-05T18:37:26 [INFO] ltm.handlers: Successfully archived processed queue file: 20260701_0617_session_1782886525153_2at7116uy.jsonl
+2026-07-06T12:29:21 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_0655_session_1783320760498_mn5uuodbt.jsonl with 3 facts.
+2026-07-06T12:29:22 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['0e9771e2e642fc50783dabe9', '1e395a36b51343033001cfbd', 'dd4c2d26d26c368e9b73e1fe', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '222c2b69770d19862dcc6a40', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '01cbd19e1ad435f0f0587b70', 'c1289ed503fe043a356f04a5', 'af4965fd3056dbb8eafa795c']
+2026-07-06T12:29:22 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_0655_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T13:03:34 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_0718_session_1783320760498_mn5uuodbt.jsonl with 4 facts.
+2026-07-06T13:03:36 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f', '4010334e68e33ee4674c7717', 'e04e6067071579afd6f182ad', 'd024b40eaa417b88f6973219', '1ab2eaaa685f7d2fa8bcb860', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '222c2b69770d19862dcc6a40', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d']
+2026-07-06T13:03:36 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_0718_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T18:17:00 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:24:45 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1249_session_1783323437450_sxope9xiq.jsonl with 1 facts.
+2026-07-06T18:24:45 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1249_session_1783323437450_sxope9xiq.jsonl
+2026-07-06T18:40:51 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1257_session_1783342557170_ckhjotc4e.jsonl with 1 facts.
+2026-07-06T18:40:51 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['fac8b768b4771a026a71ad10', '2b2b47f97440934c1c7d2599', '46344e6e7e2ab3f97714832d', 'db60ef21f50d91dbb661af49', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717']
+2026-07-06T18:40:51 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1257_session_1783342557170_ckhjotc4e.jsonl
+2026-07-06T18:43:27 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:51:47 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:55:36 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:19:01 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:19:02 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783320760498_mn5uuodbt.jsonl with 1 facts.
+2026-07-06T19:19:02 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['014d0b8a73ae84d423932be7', 'ff40816ac0a0a70bfa5e174d', 'b4f366160ffbe36047893a3b', '9ee69ee2269585a37b324c2c']
+2026-07-06T19:19:02 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T19:19:03 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323353192_pg27p93m8.jsonl with 1 facts.
+2026-07-06T19:19:03 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['014d0b8a73ae84d423932be7', '9ee69ee2269585a37b324c2c']
+2026-07-06T19:19:03 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323353192_pg27p93m8.jsonl
+2026-07-06T19:19:03 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323429727_tlvek1mw1.jsonl with 1 facts.
+2026-07-06T19:19:03 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323429727_tlvek1mw1.jsonl
+2026-07-06T19:19:04 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323437450_sxope9xiq.jsonl with 1 facts.
+2026-07-06T19:19:04 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['a51027a68b4c818f0a5b49f8', '1f38147e40eaee32933afad6', '2a58eb2701f9bbf51ee376d8', 'ce303d8b1222d6516e9810e0', 'fac8b768b4771a026a71ad10', '46344e6e7e2ab3f97714832d', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f']
+2026-07-06T19:19:04 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323437450_sxope9xiq.jsonl
+2026-07-06T19:19:30 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783342557170_ckhjotc4e.jsonl with 1 facts.
+2026-07-06T19:19:30 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['27eb4c1192a5f03aacf8278d', '837338a1bd54f6d4f1887e68', 'e9addb0cbfeac4f1a8c975dd', 'a8fb4c3987d5abaeb9fa4f7c', '2eca0eb13a6cc4f3499bbd7a', 'a51027a68b4c818f0a5b49f8', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f', '1f38147e40eaee32933afad6', '4010334e68e33ee4674c7717']
+2026-07-06T19:19:30 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783342557170_ckhjotc4e.jsonl
+2026-07-06T19:19:42 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783343800012_zzwy4m98f.jsonl with 1 facts.
+2026-07-06T19:19:42 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['3f2fccbf0dad911369795a6c', '30fd6410212f15d752bc17cb', 'db60ef21f50d91dbb661af49', 'a51027a68b4c818f0a5b49f8', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', '46344e6e7e2ab3f97714832d']
+2026-07-06T19:19:42 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783343800012_zzwy4m98f.jsonl
+2026-07-06T19:20:12 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1350_session_1783344118874_vo915uz7a.jsonl with 1 facts.
+2026-07-06T19:20:12 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['270cad345407431b0e23ef81', 'a51027a68b4c818f0a5b49f8', '46344e6e7e2ab3f97714832d', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', '3f2fccbf0dad911369795a6c']
+2026-07-06T19:20:12 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1350_session_1783344118874_vo915uz7a.jsonl
+2026-07-06T19:20:50 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1350_session_1783344346606_nff9283h4.jsonl with 1 facts.
+2026-07-06T19:20:50 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['db364b1d0b61c90f6a34d40b', 'fac8b768b4771a026a71ad10', 'a51027a68b4c818f0a5b49f8', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '4010334e68e33ee4674c7717', '2b2b47f97440934c1c7d2599', 'db60ef21f50d91dbb661af49']
+2026-07-06T19:20:50 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1350_session_1783344346606_nff9283h4.jsonl
+2026-07-06T19:22:06 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:35:37 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:52:05 [INFO] ltm.handlers: No queue session files found in facts directory.

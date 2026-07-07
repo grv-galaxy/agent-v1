@@ -1,0 +1,8 @@
+=== LTM PIPELINE FAILURE LOG ===
+Timestamp: 2026-07-02 20:43:30
+Attempt Count: 2
+Exception Type: AttributeError
+Exception Message: 'CandidateTriple' object has no attribute 'raw_text'
+
+=== Stack Trace ===
+NoneType: None

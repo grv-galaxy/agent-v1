@@ -102,9 +102,9 @@ const Configuration = () => {
     interval: 'Grounding Interval: Epochs between grounding passes.'
   };
 
-  // Load saved configuration from sessionStorage on mount
+  // Load saved configuration from localStorage on mount
   useEffect(() => {
-    const savedConfig = sessionStorage.getItem('agent_memory_config');
+    const savedConfig = localStorage.getItem('agent_memory_config');
     if (savedConfig) {
       try {
         const parsedConfig = JSON.parse(savedConfig);
@@ -123,9 +123,9 @@ const Configuration = () => {
     }
   }, []);
 
-  // Save configuration to sessionStorage
-  const saveConfigToSession = (preset, config) => {
-    sessionStorage.setItem('agent_memory_config', JSON.stringify({ preset, config }));
+  // Save configuration to localStorage
+  const saveConfigToStorage = (preset, config) => {
+    localStorage.setItem('agent_memory_config', JSON.stringify({ preset, config }));
   };
 
   // Handle preset selection
@@ -134,7 +134,7 @@ const Configuration = () => {
     setActivePreset(preset);
     setCustomConfig(newConfig);
     setDraftConfig(newConfig);
-    saveConfigToSession(preset, newConfig);
+    saveConfigToStorage(preset, newConfig);
     setErrorMessage('');
     setApplySaved(true);
     setTimeout(() => setApplySaved(false), 2000);
@@ -189,7 +189,7 @@ const Configuration = () => {
     if (validateCustomConfig(draftConfig)) {
       setCustomConfig(draftConfig);
       setActivePreset('custom');
-      saveConfigToSession('custom', draftConfig);
+      saveConfigToStorage('custom', draftConfig);
       setErrorMessage('');
       setApplySaved(true);
       setTimeout(() => setApplySaved(false), 2000);

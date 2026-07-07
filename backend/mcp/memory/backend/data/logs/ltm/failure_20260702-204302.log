@@ -1,0 +1,8 @@
+=== LTM PIPELINE FAILURE LOG ===
+Timestamp: 2026-07-02 20:43:02
+Attempt Count: 2
+Exception Type: ValueError
+Exception Message: operands could not be broadcast together with shapes (6,) (14,) () 
+
+=== Stack Trace ===
+NoneType: None

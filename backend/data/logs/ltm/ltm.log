@@ -1,0 +1,63 @@
+2026-07-06T12:29:21 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_0655_session_1783320760498_mn5uuodbt.jsonl with 3 facts.
+2026-07-06T12:29:22 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['0e9771e2e642fc50783dabe9', '1e395a36b51343033001cfbd', 'dd4c2d26d26c368e9b73e1fe', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '222c2b69770d19862dcc6a40', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '01cbd19e1ad435f0f0587b70', 'c1289ed503fe043a356f04a5', 'af4965fd3056dbb8eafa795c']
+2026-07-06T12:29:22 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_0655_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T13:03:34 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_0718_session_1783320760498_mn5uuodbt.jsonl with 4 facts.
+2026-07-06T13:03:36 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f', '4010334e68e33ee4674c7717', 'e04e6067071579afd6f182ad', 'd024b40eaa417b88f6973219', '1ab2eaaa685f7d2fa8bcb860', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '222c2b69770d19862dcc6a40', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d']
+2026-07-06T13:03:36 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_0718_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T18:17:00 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:24:45 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1249_session_1783323437450_sxope9xiq.jsonl with 1 facts.
+2026-07-06T18:24:45 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1249_session_1783323437450_sxope9xiq.jsonl
+2026-07-06T18:40:51 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1257_session_1783342557170_ckhjotc4e.jsonl with 1 facts.
+2026-07-06T18:40:51 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['fac8b768b4771a026a71ad10', '2b2b47f97440934c1c7d2599', '46344e6e7e2ab3f97714832d', 'db60ef21f50d91dbb661af49', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717']
+2026-07-06T18:40:51 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1257_session_1783342557170_ckhjotc4e.jsonl
+2026-07-06T18:43:27 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:51:47 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T18:55:36 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:19:01 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:19:02 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783320760498_mn5uuodbt.jsonl with 1 facts.
+2026-07-06T19:19:02 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['014d0b8a73ae84d423932be7', 'ff40816ac0a0a70bfa5e174d', 'b4f366160ffbe36047893a3b', '9ee69ee2269585a37b324c2c']
+2026-07-06T19:19:02 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783320760498_mn5uuodbt.jsonl
+2026-07-06T19:19:03 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323353192_pg27p93m8.jsonl with 1 facts.
+2026-07-06T19:19:03 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['014d0b8a73ae84d423932be7', '9ee69ee2269585a37b324c2c']
+2026-07-06T19:19:03 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323353192_pg27p93m8.jsonl
+2026-07-06T19:19:03 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323429727_tlvek1mw1.jsonl with 1 facts.
+2026-07-06T19:19:03 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323429727_tlvek1mw1.jsonl
+2026-07-06T19:19:04 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783323437450_sxope9xiq.jsonl with 1 facts.
+2026-07-06T19:19:04 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['a51027a68b4c818f0a5b49f8', '1f38147e40eaee32933afad6', '2a58eb2701f9bbf51ee376d8', 'ce303d8b1222d6516e9810e0', 'fac8b768b4771a026a71ad10', '46344e6e7e2ab3f97714832d', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f']
+2026-07-06T19:19:04 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783323437450_sxope9xiq.jsonl
+2026-07-06T19:19:30 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783342557170_ckhjotc4e.jsonl with 1 facts.
+2026-07-06T19:19:30 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['27eb4c1192a5f03aacf8278d', '837338a1bd54f6d4f1887e68', 'e9addb0cbfeac4f1a8c975dd', 'a8fb4c3987d5abaeb9fa4f7c', '2eca0eb13a6cc4f3499bbd7a', 'a51027a68b4c818f0a5b49f8', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f', '1f38147e40eaee32933afad6', '4010334e68e33ee4674c7717']
+2026-07-06T19:19:30 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783342557170_ckhjotc4e.jsonl
+2026-07-06T19:19:42 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1349_session_1783343800012_zzwy4m98f.jsonl with 1 facts.
+2026-07-06T19:19:42 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['3f2fccbf0dad911369795a6c', '30fd6410212f15d752bc17cb', 'db60ef21f50d91dbb661af49', 'a51027a68b4c818f0a5b49f8', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', '46344e6e7e2ab3f97714832d']
+2026-07-06T19:19:42 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1349_session_1783343800012_zzwy4m98f.jsonl
+2026-07-06T19:20:12 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1350_session_1783344118874_vo915uz7a.jsonl with 1 facts.
+2026-07-06T19:20:12 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['270cad345407431b0e23ef81', 'a51027a68b4c818f0a5b49f8', '46344e6e7e2ab3f97714832d', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', '3f2fccbf0dad911369795a6c']
+2026-07-06T19:20:12 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1350_session_1783344118874_vo915uz7a.jsonl
+2026-07-06T19:20:50 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1350_session_1783344346606_nff9283h4.jsonl with 1 facts.
+2026-07-06T19:20:50 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['db364b1d0b61c90f6a34d40b', 'fac8b768b4771a026a71ad10', 'a51027a68b4c818f0a5b49f8', '7493c5f083b01e8a768eb73d', 'd7f0e9a3c5583861d2426511', '4010334e68e33ee4674c7717', '2b2b47f97440934c1c7d2599', 'db60ef21f50d91dbb661af49']
+2026-07-06T19:20:50 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1350_session_1783344346606_nff9283h4.jsonl
+2026-07-06T19:22:06 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:35:37 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T19:52:05 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T20:45:46 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-06T20:45:47 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1515_session_1783345297054_avupxxxyn.jsonl with 1 facts.
+2026-07-06T20:45:47 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['ff3fc1312f879f744bb38d65', 'cc60023397290727169c49e9', '7a51b4959513c11e526f6e8a', 'a51027a68b4c818f0a5b49f8', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', '2eca0eb13a6cc4f3499bbd7a']
+2026-07-06T20:45:47 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1515_session_1783345297054_avupxxxyn.jsonl
+2026-07-06T20:45:48 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1515_session_1783345990864_tq4e3vror.jsonl with 1 facts.
+2026-07-06T20:45:48 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['ddee7dc60df9fb4d9725e982', 'db364b1d0b61c90f6a34d40b', 'fac8b768b4771a026a71ad10', '2b2b47f97440934c1c7d2599', 'db60ef21f50d91dbb661af49']
+2026-07-06T20:45:48 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1515_session_1783345990864_tq4e3vror.jsonl
+2026-07-06T20:46:24 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1516_session_1783346777024_a4t8hpfal.jsonl with 1 facts.
+2026-07-06T20:46:24 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['b7c91f075c0e70ae8411a47b', 'f37de57cbf2de783bf50aaf5', '27bb14fbd2575cf7e69ec916', '04597dcc78ca35dc40b6b6ca', 'fac8b768b4771a026a71ad10', '2b2b47f97440934c1c7d2599', 'db60ef21f50d91dbb661af49', 'db364b1d0b61c90f6a34d40b', 'ddee7dc60df9fb4d9725e982', '4010334e68e33ee4674c7717', 'e9addb0cbfeac4f1a8c975dd']
+2026-07-06T20:46:24 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1516_session_1783346777024_a4t8hpfal.jsonl
+2026-07-06T20:46:52 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1516_session_1783347737336_951obg7w3.jsonl with 1 facts.
+2026-07-06T20:46:52 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['13095237210602cde088f5ce', '33fdafda41f066e91ed900a9', '8b2f5c7a7fa1a7f4935b7b22', 'a51027a68b4c818f0a5b49f8', 'ddee7dc60df9fb4d9725e982', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '4010334e68e33ee4674c7717', 'e9addb0cbfeac4f1a8c975dd', 'a8fb4c3987d5abaeb9fa4f7c', '270cad345407431b0e23ef81', '46344e6e7e2ab3f97714832d', '3f2fccbf0dad911369795a6c']
+2026-07-06T20:46:52 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1516_session_1783347737336_951obg7w3.jsonl
+2026-07-06T20:47:34 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1517_session_1783348082215_9j9jgzqfh.jsonl with 1 facts.
+2026-07-06T20:47:34 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['fd16a4be2949407ac7c1cbe7', 'f154dbbf2ff51ff19f01417c', 'c3fb1c9b6e485029796c5765', 'e75be81cebeb270a4f4f6efd', 'b7c91f075c0e70ae8411a47b', '837338a1bd54f6d4f1887e68', '46344e6e7e2ab3f97714832d', '3f2fccbf0dad911369795a6c', '270cad345407431b0e23ef81', '33fdafda41f066e91ed900a9', '8b2f5c7a7fa1a7f4935b7b22']
+2026-07-06T20:47:34 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1517_session_1783348082215_9j9jgzqfh.jsonl
+2026-07-06T20:48:08 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260706_1518_session_1783348140894_kosaqwujd.jsonl with 1 facts.
+2026-07-06T20:48:08 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['fac8b768b4771a026a71ad10', 'a51027a68b4c818f0a5b49f8', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '2eca0eb13a6cc4f3499bbd7a', '7a51b4959513c11e526f6e8a', '4010334e68e33ee4674c7717', 'a8fb4c3987d5abaeb9fa4f7c', 'e9addb0cbfeac4f1a8c975dd']
+2026-07-06T20:48:08 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260706_1518_session_1783348140894_kosaqwujd.jsonl
+2026-07-07T20:22:57 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260707_1450_session_1783348304540_71ffmd2pn.jsonl with 1 facts.
+2026-07-07T20:22:58 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['0f5962d2a6f8e86171490df9', '2bef97f0e4d42cc376ae514c', '46344e6e7e2ab3f97714832d', 'd7f0e9a3c5583861d2426511', '7493c5f083b01e8a768eb73d', '7a51b4959513c11e526f6e8a', '2eca0eb13a6cc4f3499bbd7a', 'e9addb0cbfeac4f1a8c975dd', '4010334e68e33ee4674c7717', '27bb14fbd2575cf7e69ec916', '04597dcc78ca35dc40b6b6ca', 'a8fb4c3987d5abaeb9fa4f7c', 'dd4c2d26d26c368e9b73e1fe', '4f4b8369c2b16846bb40b18b', '68c79226d5775b764cd0cf4d', '4e39cc953c611ed2b51f46b9', '6b11a39fcdbdf1c2869953dc', 'df1cce5388fc165b20c72e85', '79de141be86d60ce04fe8af0', 'b029fbcabe33d0c251b2107f', 'a51027a68b4c818f0a5b49f8', '1f38147e40eaee32933afad6', '837338a1bd54f6d4f1887e68']

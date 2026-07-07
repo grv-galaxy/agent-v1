@@ -27,3 +27,8 @@ dependencies = [
     "uvicorn>=0.49.0",
     "wikipedia>=1.4.0",
 ]
+
+[tool.uv.workspace]
+members = [
+    "backend/mcp/memory",
+]

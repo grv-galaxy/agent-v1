@@ -1,0 +1,8 @@
+=== LTM PIPELINE FAILURE LOG ===
+Timestamp: 2026-07-02 19:34:03
+Attempt Count: 2
+Exception Type: AttributeError
+Exception Message: 'dict' object has no attribute 'strip'
+
+=== Stack Trace ===
+NoneType: None

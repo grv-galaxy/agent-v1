@@ -14,6 +14,12 @@ logger = logging.getLogger("chat.memory_trigger")
 
 
 async def _sync_now() -> None:
+    from app.core.config import get_saved_config
+    config = get_saved_config()
+    if str(config.get("LONG_TERM_MEMORY_ENABLED", "true")).lower() == "false":
+        logger.info("LTM is disabled. Skipping background sync.")
+        return
+
     try:
         result = await call_ltm_tool("sync_memory_now")
         logger.info(f"LTM background sync completed: {result}")

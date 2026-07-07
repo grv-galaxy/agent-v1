@@ -296,7 +296,7 @@ export default function MemorySettingsCard({
     total_messages_compressed: 0,
     estimated_tokens_saved: 0,
   });
-  const [longTermMemoryEnabled, setLongTermMemoryEnabled] = useState(false);
+  const [longTermMemoryEnabled, setLongTermMemoryEnabled] = useState(true);
   const [statsStatus, setStatsStatus] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const localConfigFetchedRef = useRef(false);

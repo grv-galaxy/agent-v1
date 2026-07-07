@@ -2,6 +2,20 @@ import subprocess
 import sys
 import os
 import time
+from pathlib import Path
+
+def is_ltm_enabled(root_dir: str) -> bool:
+    env_path = Path(root_dir) / "backend" / ".env"
+    if not env_path.exists():
+        return True # Default to True
+    
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("LONG_TERM_MEMORY_ENABLED="):
+                value = stripped.split("=")[1].strip().lower()
+                return value == "true"
+    return True # Default to True
 
 def run_project():
     root_dir = os.getcwd()
@@ -21,14 +35,17 @@ def run_project():
 
     try:
         # 1. MCP Memory Server first — backend depends on it being up
-        print("🧠 Starting MCP Memory Server (uv run server.py)...")
-        mcp_process = subprocess.Popen(
-            ["uv", "run", "server.py"],
-            cwd=mcp_memory_dir,
-            **popen_kwargs
-        )
-        processes.append(("MCP Memory Server", mcp_process))
-        time.sleep(2)  # let it bind its SSE port before backend connects
+        if is_ltm_enabled(root_dir):
+            print("🧠 Starting MCP Memory Server (uv run server.py)...")
+            mcp_process = subprocess.Popen(
+                ["uv", "run", "server.py"],
+                cwd=mcp_memory_dir,
+                **popen_kwargs
+            )
+            processes.append(("MCP Memory Server", mcp_process))
+            time.sleep(2)  # let it bind its SSE port before backend connects
+        else:
+            print("🧠 MCP Memory Server is DISABLED via .env. Skipping...")
 
         # 2. Backend
         print("📦 Starting Backend (uv run main.py)...")

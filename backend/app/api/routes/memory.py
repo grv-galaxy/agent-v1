@@ -4,6 +4,11 @@ from typing import List, Optional, Dict, Literal, Any
 import os
 from pathlib import Path
 import asyncio
+import subprocess
+import socket
+import sys
+import os
+from app.services.memory_trigger import trigger_sync_background
 
 # Import existing utilities (adjust paths as needed)
 from app.providers.factory import ProviderFactory
@@ -151,6 +156,43 @@ async def save_memory_config(payload: MemoryConfigRequest):
     
     if new_config:
         await write_memory_config(new_config)
+
+    # Dynamic MCP Server Management and Batch Digestion
+    if payload.long_term_memory_enabled is True:
+        # 1. Check if the server is running on port 8765
+        is_running = False
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            try:
+                s.connect(("127.0.0.1", 8765))
+                is_running = True
+            except Exception:
+                pass
+        
+        # 2. Start it if it's not running
+        if not is_running:
+            import logging
+            logger = logging.getLogger("chat.memory_trigger")
+            logger.info("LTM was toggled ON but MCP server is not running. Starting dynamically...")
+            
+            root_dir = Path(__file__).resolve().parent.parent.parent.parent
+            mcp_memory_dir = root_dir / "mcp" / "memory"
+            
+            popen_kwargs = {}
+            if sys.platform == "win32":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                
+            subprocess.Popen(
+                ["uv", "run", "server.py"],
+                cwd=str(mcp_memory_dir),
+                **popen_kwargs
+            )
+            # Give it a moment to boot before we trigger the sync
+            await asyncio.sleep(2)
+            
+        # 3. Always trigger batch digestion when toggled ON
+        trigger_sync_background()
+
     return {"success": True, "message": "Memory config saved successfully."}
 
 

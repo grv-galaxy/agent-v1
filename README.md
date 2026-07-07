@@ -1,233 +1,105 @@
-# SYNAPSE
-### Synthesis Network for Advanced Problem Solving & Execution
+# Agent-v1: Advanced LLM Agent with Multi-Layer Memory
 
-> A high-fidelity, real-time AI memory telemetry and observability engine built for engineers who refuse to let their LLM context window be a black box.
-
----
-
-## What is SYNAPSE?
-
-Modern LLM-powered agents face a fundamental engineering problem — the context window is finite. As conversations grow longer, token consumption compounds, costs spike, and eventually the model silently loses the beginning of the conversation entirely. To combat this, production systems implement rolling compression, sliding message buffers, and historical summary chains. But these systems are almost entirely invisible at runtime. You trigger a compression, something happens inside the model, and you get a summary back. What was evicted? When exactly did it fire? What did the rolling summary look like before and after? Without instrumentation, you are flying blind.
-
-SYNAPSE is the instrumentation layer.
-
-It connects directly to your agent's live payload stream via `sessionStorage`, captures every atomic state frame as the conversation evolves, and renders that raw engineering data into a structured, real-time diagnostic terminal. It is not a chat UI. It is not a user-facing product. It is the cockpit view — built specifically for the engineer who is building the agent, so they can see exactly what is happening inside the memory system at every single moment.
-
-SYNAPSE was designed alongside a production AI agent architecture (`agent-v1`) that implements a multi-layer memory system including:
-
-- A sliding raw message buffer with configurable threshold triggering
-- An LLM-powered compression pass that produces structured `rolling_summary` chains
-- A grounding pass that fires every N epochs to reconcile semantic drift across summary versions
-- A background fact extraction pipeline that persists empirical memory to disk
-- A RAG injection layer that retrieves relevant facts before every LLM call
-
-SYNAPSE gives you real-time visibility into every layer of that system as it runs.
+Agent-v1 is an advanced, local-first LLM agent architecture featuring a robust multi-layer memory system, a highly modular FastAPI backend, and a real-time telemetry dashboard (SYNAPSE). It is designed to solve the context window limitations of modern LLMs by implementing continuous memory compression and asynchronous long-term memory extraction.
 
 ---
 
-## The Problem It Solves
+## 🌟 Key Features
 
-Without a tool like SYNAPSE, debugging a memory-managed LLM agent looks like this:
-
-- You add a `print()` statement to see when compression fires
-- You paste the rolling summary into a text editor and read it manually
-- You guess whether the model is actually receiving the summary in its context
-- You have no idea whether the grounding pass changed anything or not
-- You cannot see which messages were in the compression chunk vs the live buffer
-- You find out something went wrong only when the model starts giving wrong answers
-
-SYNAPSE replaces all of that guesswork with a live, structured, searchable telemetry console that updates in real time as your agent processes messages.
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────┐
-│            LLM Chat Interface            │
-│   (Streams tokens, triggers compression) │
-└───────────────────┬──────────────────────┘
-                    │
-       Writes atomic state payload frames
-                    ▼
-┌──────────────────────────────────────────┐
-│             sessionStorage               │
-│      ['agent.live_payload_stream']       │
-└───────────────────┬──────────────────────┘
-                    │
-    Hybrid listener — custom event dispatch
-    + 1000ms polling fallback (same-tab fix)
-                    ▼
-┌──────────────────────────────────────────────────────────────────────┐
-│                        SYNAPSE TERMINAL                              │
-│                                                                      │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────────┐  │
-│  │  Context Dial   │  │ Transcript Viewer │  │  Compression Log   │  │
-│  │  (% allocated)  │  │ (live messages)   │  │  (epoch ledger)    │  │
-│  └─────────────────┘  └──────────────────┘  └────────────────────┘  │
-│                                                                      │
-│  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────────┐  │
-│  │  Rolling Summary│  │  Raw JSON Matrix  │  │  Session Identity  │  │
-│  │  Tree Viewer    │  │  (searchable)     │  │  & Provider Info   │  │
-│  └─────────────────┘  └──────────────────┘  └────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-### The Same-Tab Storage Sync Problem
-
-The standard JavaScript `storage` event only fires across different browser tabs. It does not fire when the same tab updates `sessionStorage`. This is a well-known browser limitation that breaks most naive implementations of local state observation.
-
-SYNAPSE solves this with a hybrid sync architecture — a custom `storage_update` event dispatch hook that fires immediately on every write, combined with a 1000ms polling fallback engine that catches any mutations the event system misses. The result is true same-tab real-time sync with no race conditions and no missed frames.
+*   **Multi-Layer Memory System**:
+    *   **Short-Term Memory (Working Memory)**: Implements a sliding window with automatic, threshold-triggered LLM compression passes.
+    *   **Long-Term Memory (LTM)**: A detached FastMCP background process that extracts facts, deduplicates them, and stores them locally using `sqlite-vec` for fast, private vector search.
+*   **SYNAPSE Telemetry & Observability**:
+    *   A real-time, high-fidelity memory telemetry engine.
+    *   Provides visual dials for context allocation, compression epoch tracking, and raw JSON payload matrices.
+    *   Synchronizes seamlessly with browser `sessionStorage` to monitor the agent's internal state.
+*   **Provider Agnostic Backend**:
+    *   Integrates with numerous AI providers (OpenAI, Anthropic, Groq, Gemini, Local models, etc.) via a unified Factory pattern.
+    *   Easily switch models and providers for different tasks (e.g., chat vs. memory compression).
+*   **Local-First & Privacy Focused**:
+    *   All memory storage, including vector embeddings and SQLite databases, resides entirely on the user's local machine.
 
 ---
 
-## Key Features
+## 🏗️ Architecture
 
-**Real-Time Context Allocation Dial** — A circular gauge showing exactly what percentage of the context window is currently consumed, updated on every message. You can see the number climbing toward the compression threshold in real time.
+The project is divided into three main components:
 
-**Compression Epoch Tracking** — Every time the compression system fires, SYNAPSE logs the epoch number, the event type (compression pass or grounding pass), and the resulting rolling summary. You can see the entire compression history for a session as a sequential ledger.
+### 1. Backend (`/backend`)
+A layered FastAPI application designed for maintainability and clear separation of concerns:
+*   **API Layer (`app/api/routes`)**: Thin REST endpoints for chat, memory, and configuration.
+*   **Services (`app/services`)**: Core business logic, including the critical `compression.py` for handling rolling summaries and grounding passes.
+*   **Providers (`app/providers`)**: Adapter implementations for 15+ external LLM APIs.
+*   **MCP (`mcp/`)**: FastMCP-based background processes, specifically the detached Long-Term Memory (LTM) manager.
 
-**Live Transcript Viewer** — A segregated view of user frames and assistant frames with color-coded indicator ribbons (indigo for user, cyan for assistant). Shows the live buffer messages separately from the compression chunk so you can see exactly what is in the active window vs what has been evicted.
+### 2. Frontend (`/frontend` & `/electron`)
+A React-based interface (built with Vite and Tailwind CSS) that provides:
+*   The primary Chat UI.
+*   The SYNAPSE diagnostic terminal for real-time observability of the agent's memory payload.
+*   Optionally packageable as a desktop application via Electron.
 
-**Rolling Summary Tree** — Renders the structured rolling summary output at each epoch so you can visually inspect what the compression model decided to preserve, what it added, and what entity categories it tracked.
-
-**Compression Alert Flags** — When `should_compress` flips to `true` in the payload, the dashboard immediately surfaces a visual alert so you can see exactly which message triggered the threshold.
-
-**Raw JSON Matrix** — A searchable, copy-to-clipboard explorer of the full raw payload at any point in the session. Useful for verifying field values, debugging payload structure, and capturing exact state snapshots for bug reports.
-
-**Mission Control Strip** — Pause and resume background telemetry tracking at any time. Force-refresh the view manually. All control state is persisted to `localStorage` so it survives page reloads.
-
-**Zero Backend Dependency** — SYNAPSE reads entirely from `sessionStorage`. It requires no server, no websocket, no additional API endpoint. If your agent writes its payload state to `sessionStorage`, SYNAPSE works.
-
----
-
-## Expected Payload Schema
-
-SYNAPSE reads from `sessionStorage['agent.live_payload_stream']` and maps the following fields:
-
-```json
-{
-  "provider": "groq",
-  "api_key": "",
-  "model_name": "openai/gpt-oss-120b",
-  "compression_chunk": [],
-  "compression_epoch": 0,
-  "memory_grounding_interval": 5,
-  "memory_model": "llama-3.1-8b-instant",
-  "memory_preset": "balanced",
-  "memory_provider": "groq",
-  "memory_raw_buffer": 10,
-  "memory_summary_cap_tokens": 800,
-  "memory_trigger_threshold": 30,
-  "messages": [{ "role": "user", "content": "hey" }],
-  "rolling_summary": "",
-  "session_id": "session_1781537243442_jn9kava9f",
-  "should_compress": false,
-  "summary_history": [],
-  "use_memory": true
-}
-```
-
-All fields are optional with safe fallbacks — SYNAPSE degrades gracefully if fields are missing or malformed.
+### 3. Documentation (`/docs`)
+Extensive architectural documentation, including:
+*   `backend_folder.md`: Backend structure and design philosophy.
+*   `ltm_doc.md`: The complete Long-Term Memory background process architecture.
+*   `memory_layer_architecture_audit.md`: Current audit reports on memory implementation.
 
 ---
 
-## Tech Stack
+## 🚀 Getting Started
 
-| Layer | Technology |
-|---|---|
-| Framework | React 18+ (Vite) |
-| Styling | Tailwind CSS — Obsidian/Slate dark theme |
-| Animations | Framer Motion |
-| Icons | Lucide React |
-| Storage | sessionStorage (read) + localStorage (control state) |
-| Sync Engine | Custom event dispatch + polling hybrid |
+### Prerequisites
+*   **Python 3.11+**
+*   **Node.js 18+**
+*   **uv** (Python package installer and resolver)
 
----
+### Backend Setup
 
-## Getting Started
+1.  Navigate to the backend directory or project root:
+    ```bash
+    cd agent-v1
+    ```
+2.  Install dependencies using `uv`:
+    ```bash
+    uv pip install -e .
+    ```
+3.  Set up your environment variables:
+    *   Copy the example `.env` file or create one in the `backend/` directory.
+    *   Add your API keys (e.g., `OPENAI_API_KEY`, `GROQ_API_KEY`).
+4.  Start the FastAPI server:
+    ```bash
+    cd backend
+    python main.py
+    # or uvicorn app.main:app --reload
+    ```
 
-**1. Clone the repository**
+### Frontend Setup
 
-```bash
-git clone https://github.com/YOUR_USERNAME/synapse.git
-cd synapse
-```
-
-**2. Install dependencies**
-
-```bash
-npm install
-```
-
-Ensure `framer-motion` and `lucide-react` are present in your `package.json`.
-
-**3. Start the dev server**
-
-```bash
-npm run dev
-```
-
-**4. Connect your agent**
-
-In your LLM agent frontend, write the current payload state to sessionStorage on every message cycle:
-
-```javascript
-sessionStorage.setItem('agent.live_payload_stream', JSON.stringify(currentPayload));
-window.dispatchEvent(new Event('storage_update'));
-```
-
-SYNAPSE picks it up instantly.
-
-**5. Test without a backend**
-
-Open browser DevTools (F12) on your running SYNAPSE instance and paste this into the console to simulate a live payload:
-
-```javascript
-sessionStorage.setItem('agent.live_payload_stream', JSON.stringify({
-  provider: "groq",
-  model_name: "openai/gpt-oss-120b",
-  memory_model: "llama-3.1-8b-instant",
-  memory_trigger_threshold: 30,
-  messages: [
-    { role: "user", content: "Hello agent, let's process this token window map." },
-    { role: "assistant", content: "Understood. Monitoring sliding constraints now." }
-  ],
-  use_memory: true,
-  session_id: "session_debug_test_node_99",
-  compression_epoch: 0,
-  should_compress: false,
-  rolling_summary: "",
-  summary_history: []
-}));
-
-window.dispatchEvent(new Event('storage_update'));
-```
+1.  Navigate to the frontend directory:
+    ```bash
+    cd frontend
+    ```
+2.  Install Node dependencies:
+    ```bash
+    npm install
+    ```
+3.  Start the Vite development server:
+    ```bash
+    npm run dev
+    ```
 
 ---
 
-## Who This Is For
+## 🧠 How the Memory System Works
 
-SYNAPSE is built for engineers building production LLM agents — specifically anyone implementing context window management, rolling compression, or multi-layer memory systems. If you are building an agent that needs to handle conversations longer than its context window, and you want to actually see what your memory system is doing at runtime, SYNAPSE is the observability layer you were missing.
-
-It is not a product demo. It is a professional engineering tool.
-
----
-
-## Roadmap
-
-- Persistent session replay — load and replay any past session from the fact ledger
-- Multi-session comparison view — compare compression behavior across different sessions side by side
-- Fact extraction telemetry — visualize the empirical memory layer as facts are extracted and confidence scores update
-- RAG injection trace — show exactly which facts were retrieved and injected before each LLM call
-- Export to JSONL — dump any session's full telemetry to a file for offline analysis
+1.  **Chat Stream**: As the user chats, messages accumulate in the `frontend`.
+2.  **Trigger Threshold**: When the raw message count hits a configured threshold, the frontend triggers a compression pass via the `/api/compress` endpoint.
+3.  **Compression (Epoch N)**: The backend `compression.py` service uses an LLM to generate a rolling summary and extract structured facts.
+4.  **Logging**: The raw output is appended to a local JSONL file (`facts.jsonl`).
+5.  **LTM Processing (Background)**: The FastMCP memory manager asynchronously reads the JSONL, dedupes facts, generates embeddings (via local ONNX models or API), and updates the local SQLite vector database (`sqlite-vec`).
 
 ---
 
-## License
+## 📝 License
 
-MIT License. See `LICENSE` for full terms.
-
----
-
-*SYNAPSE — because if you can't observe it, you can't engineer it.*
+See the `LICENSE` file for full terms.

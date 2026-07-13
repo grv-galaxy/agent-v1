@@ -1,0 +1,41 @@
+use_default_settings: true
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "f3a2863d9af87219e81fc50e752a1140eee441b799a808a2aea240dc2ed501fc"
+  limiter: false
+  image_proxy: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+engines:
+  - name: google
+    enable: false
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    categories: general
+    timeout: 2.0
+    enable: true
+  - name: brave
+    engine: brave
+    shortcut: brv
+    categories: general
+    timeout: 2.0
+    enable: true
+  - name: startpage
+    engine: startpage
+    shortcut: sp
+    categories: general
+    timeout: 2.5
+    enable: true
+
+redis:
+  url: redis://redis:6379/0

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Agent Trace</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+
+<div id="app-container">
+
+    <!-- Tabs -->
+    <div class="tabs-container">
+        <div class="tab active" id="tab-search">Live Search</div>
+        <div class="tab" id="tab-history">History</div>
+    </div>
+    
+    <!-- Search View -->
+    <div id="view-search">
+        <div class="search-container">
+            <input type="text" id="search-input" class="search-input" placeholder="Ask anything... (Press Enter to search)">
+        </div>
+
+        <!-- Trace Container -->
+        <div class="trace-container" id="trace-container">
+            <!-- Dynamic content injected here -->
+        </div>
+
+        <!-- Synthesized Answer -->
+        <div class="synthesis-container" id="synthesis-container" style="display: none;">
+            <div class="answer-text" id="answer-text"></div>
+        </div>
+    </div>
+
+    <!-- History View -->
+    <div id="view-history" style="display: none;">
+        <div class="history-list" id="history-list">
+            <!-- Dynamic history cards injected here -->
+        </div>
+    </div>
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

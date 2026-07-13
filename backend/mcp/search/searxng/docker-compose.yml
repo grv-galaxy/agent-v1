@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./searxng:/etc/searxng:ro
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080/
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: always
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: searxng-redis
+    ports:
+      - "6379:6379"
+    restart: always

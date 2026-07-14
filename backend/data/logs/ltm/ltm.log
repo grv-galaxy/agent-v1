@@ -64,3 +64,8 @@
 2026-07-07T20:22:58 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260707_1450_session_1783348304540_71ffmd2pn.jsonl
 2026-07-12T20:24:40 [INFO] ltm.handlers: No queue session files found in facts directory.
 2026-07-12T20:29:38 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-14T20:48:18 [INFO] ltm.handlers: Queue Fetcher found file(s) 20260712_1500_session_1783868312600_2uj2mtmff.jsonl with 1 facts.
+2026-07-14T20:48:19 [INFO] ltm.handlers: Projecting dynamic changes into markdown files: ['014d0b8a73ae84d423932be7', '4010334e68e33ee4674c7717']
+2026-07-14T20:48:19 [INFO] ltm.handlers: Successfully archived processed queue file(s): 20260712_1500_session_1783868312600_2uj2mtmff.jsonl
+2026-07-14T20:50:07 [INFO] ltm.handlers: No queue session files found in facts directory.
+2026-07-14T20:53:03 [INFO] ltm.handlers: No queue session files found in facts directory.

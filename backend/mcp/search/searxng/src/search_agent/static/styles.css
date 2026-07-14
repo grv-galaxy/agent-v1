@@ -113,6 +113,25 @@ body {
 .stage-time {
   font-variant-numeric: tabular-nums;
   font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  min-width: 48px;
+  text-align: right;
+  transition: color 0.3s ease;
+}
+
+.stage-row.active .stage-time {
+  color: var(--accent);
+  animation: pulse-text 1s infinite alternate;
+}
+
+.stage-row.done .stage-time {
+  color: var(--success, #4ade80);
+}
+
+@keyframes pulse-text {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
 }
 
 /* --- Source Group (Parallel Fetching) --- */
@@ -188,6 +207,50 @@ body {
 .source-chip.error {
   opacity: 0.6;
   border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* Elapsed time badge inside each source chip */
+.chip-elapsed {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  margin-left: auto;
+  padding-left: 8px;
+  min-width: 36px;
+  text-align: right;
+  letter-spacing: 0.01em;
+}
+
+.source-chip.done .chip-elapsed {
+  color: #4ade80;
+}
+
+.source-chip.error .chip-elapsed {
+  color: #ef4444;
+}
+
+/* Query completion summary bar */
+.query-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  animation: slideUpFade 0.4s ease forwards;
+}
+
+.query-summary-bar strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-icon {
+  font-size: 16px;
 }
 
 /* Status Indicators */
@@ -373,4 +436,66 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 12px;
   color: var(--text-muted);
+}
+
+/* --- Page Visit Custom UI --- */
+.page-visit-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  margin-top: 8px;
+  backdrop-filter: blur(10px);
+  color: var(--text-primary);
+}
+
+.page-visit-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-visit-icon {
+  font-size: 20px;
+}
+
+/* Wave Loader */
+.wave-loader {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  height: 16px;
+}
+
+.wave-loader span {
+  display: block;
+  width: 3px;
+  height: 100%;
+  background-color: var(--accent);
+  animation: wave 1s infinite ease-in-out;
+  border-radius: 2px;
+}
+
+.wave-loader span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.wave-loader span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.wave-loader span:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }

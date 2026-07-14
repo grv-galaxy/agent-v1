@@ -1,6 +1,6 @@
 ---
 entity: User
-last_updated: 2026-07-07T14:52:58.232224+00:00
+last_updated: 2026-07-14T15:18:19.554862+00:00
 source_facts: []
 ---
 
@@ -11,7 +11,7 @@ source_facts: []
 - is: interested in social issues (confidence: 0.62)
 ## Preferences
 - likes: Python (confidence: 0.73)
-- likes: dark mode (confidence: 0.68)
+- likes: dark mode (confidence: 0.75)
 - likes: National Security (confidence: 0.76)
 - likes: Politics (confidence: 0.76)
 ## Relationships

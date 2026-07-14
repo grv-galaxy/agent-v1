@@ -80,6 +80,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let ws = null;
     let groupMap = {}; 
     let currentStageRow = null;
+    let stageTimers = {};   // stageId -> { intervalId, startMs }
+    let chipTimers = {};    // source_id -> { intervalId, startMs }
+    let queryStartMs = null;
 
     searchInput.addEventListener("keypress", (e) => {
         if (e.key === "Enter" && searchInput.value.trim() !== "") {
@@ -93,6 +96,13 @@ document.addEventListener("DOMContentLoaded", () => {
         synthesisContainer.style.display = "none";
         groupMap = {};
         currentStageRow = null;
+        stageTimers = {};
+        chipTimers = {};
+        queryStartMs = Date.now();
+
+        // Remove old summary bar if any
+        const old = document.getElementById("query-summary-bar");
+        if (old) old.remove();
 
         if (ws) {
             ws.close();
@@ -121,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 break;
             case "stage_done":
                 if (currentStageRow) {
-                    updateStageRow(currentStageRow, data.elapsed_ms);
+                    updateStageRow(currentStageRow, data.stage, data.elapsed_ms);
                 }
                 break;
             case "source_start":
@@ -142,14 +152,30 @@ document.addEventListener("DOMContentLoaded", () => {
             case "citation_check":
                 updateCitationPill(data.n, data.passed);
                 break;
-            case "done":
-                console.log(`Query completed in ${data.total_elapsed_ms}ms`);
+            case "done": {
+                const totalMs = data.total_elapsed_ms;
+                const totalSec = (totalMs / 1000).toFixed(2);
+                // Clear any remaining timers
+                Object.values(stageTimers).forEach(t => clearInterval(t.intervalId));
+                Object.values(chipTimers).forEach(t => clearInterval(t.intervalId));
+                // Render summary bar
+                const bar = document.createElement("div");
+                bar.id = "query-summary-bar";
+                bar.className = "query-summary-bar";
+                bar.innerHTML = `<span class="summary-icon">⚡</span> Completed in <strong>${totalSec}s</strong>`;
+                traceContainer.appendChild(bar);
                 ws.close();
                 break;
+            }
         }
     }
 
     function createStageRow(stageId, label) {
+        // Stop any previous active stage timer
+        Object.entries(stageTimers).forEach(([id, t]) => {
+            clearInterval(t.intervalId);
+        });
+
         const row = document.createElement("div");
         row.className = "stage-row active";
         row.id = `stage-${stageId}`;
@@ -159,19 +185,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="stage-icon"></div>
                 <div class="stage-label">${label}</div>
             </div>
-            <div class="stage-time">...</div>
+            <div class="stage-time" id="stagetime-${stageId}">0ms</div>
         `;
         traceContainer.appendChild(row);
+
+        // Start live timer
+        const startMs = Date.now();
+        const timeEl = row.querySelector(`#stagetime-${stageId}`);
+        const intervalId = setInterval(() => {
+            timeEl.innerText = `${Date.now() - startMs}ms`;
+        }, 50);
+        stageTimers[stageId] = { intervalId, startMs };
+
         return row;
     }
 
-    function updateStageRow(row, elapsedMs) {
+    function updateStageRow(row, stageId, elapsedMs) {
+        // Stop the live timer
+        if (stageTimers[stageId]) {
+            clearInterval(stageTimers[stageId].intervalId);
+        }
         row.classList.remove("active");
         row.classList.add("done");
-        row.querySelector(".stage-time").innerText = `${elapsedMs}ms`;
+        // Format nicely
+        const label = elapsedMs >= 1000
+            ? `${(elapsedMs / 1000).toFixed(2)}s`
+            : `${elapsedMs}ms`;
+        row.querySelector(".stage-time").innerText = label;
     }
 
     function handleSourceStart(data) {
+        if (data.type === "page_visit_start") {
+            const card = document.createElement("div");
+            card.className = "page-visit-card";
+            card.id = `chip-${data.source_id}`;
+            
+            card.innerHTML = `
+                <div class="page-visit-left">
+                    <span class="page-visit-icon">📖</span>
+                    <span>${data.label || 'Reading article...'} (${data.domain || 'website'})</span>
+                </div>
+                <div class="wave-loader" id="status-${data.source_id}">
+                    <span></span><span></span><span></span><span></span>
+                </div>
+            `;
+            traceContainer.appendChild(card);
+            return;
+        }
+
         const groupId = data.group_id || `single-${data.source_id}`;
         
         if (!groupMap[groupId]) {
@@ -214,7 +275,16 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="status-indicator" id="status-${data.source_id}">
                 <div class="spinner"></div>
             </div>
+            <span class="chip-elapsed" id="chiptime-${data.source_id}">0ms</span>
         `;
+        
+        // Start a live timer for this chip
+        const startMs = Date.now();
+        const timeEl = chip.querySelector(`#chiptime-${data.source_id}`);
+        const intervalId = setInterval(() => {
+            timeEl.innerText = `${Date.now() - startMs}ms`;
+        }, 100);
+        chipTimers[data.source_id] = { intervalId, startMs };
         
         groupMap[groupId].groupEl.appendChild(chip);
     }
@@ -223,6 +293,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const chip = document.getElementById(`chip-${data.source_id}`);
         const statusInd = document.getElementById(`status-${data.source_id}`);
         if (!chip || !statusInd) return;
+
+        // Stop chip timer and show final time
+        let elapsedLabel = "";
+        if (chipTimers[data.source_id]) {
+            clearInterval(chipTimers[data.source_id].intervalId);
+            const elapsed = Date.now() - chipTimers[data.source_id].startMs;
+            elapsedLabel = elapsed >= 1000 ? `${(elapsed/1000).toFixed(1)}s` : `${elapsed}ms`;
+            const timeEl = document.getElementById(`chiptime-${data.source_id}`);
+            if (timeEl) timeEl.innerText = elapsedLabel;
+        }
+
+        if (chip.classList.contains("page-visit-card")) {
+            statusInd.className = "";
+            if (data.status === "success" || data.type === "page_visit_done") {
+                statusInd.innerHTML = `<span style="color: #4ade80;">✓</span>`;
+            } else {
+                statusInd.innerHTML = `<span style="color: #ef4444;">✕</span>`;
+            }
+            return;
+        }
 
         chip.classList.remove("active");
         

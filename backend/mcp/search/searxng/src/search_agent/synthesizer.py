@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import AsyncGenerator
 from openai import AsyncOpenAI
 from src.search_agent.config import settings
@@ -32,7 +33,8 @@ async def synthesize(query: str, top_results: list[dict]) -> AsyncGenerator[str,
     system_prompt_template = load_prompt()
     context = format_context(top_results)
     
-    system_message = system_prompt_template.replace("{context}", context)
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    system_message = system_prompt_template.replace("{context}", context).replace("{current_date}", current_date)
     
     response = await client.chat.completions.create(
         model=settings.groq_model,

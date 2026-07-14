@@ -2,6 +2,10 @@ import time
 import json
 import asyncio
 import os
+import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -15,6 +19,11 @@ from src.search_agent.ranker import ONNXRanker, BI_ENCODER_PATH, CROSS_ENCODER_P
 from src.search_agent.synthesizer import synthesize
 from src.search_agent.citations import verify_citations
 from src.search_agent.telemetry import log_query, init_db
+from src.search_agent.extractor import extract_url
+import uuid
+import hashlib
+import redis.asyncio as aioredis
+import numpy as np
 
 # Federated API sources
 from src.search_agent.sources.pypi import search_pypi
@@ -26,11 +35,14 @@ from src.search_agent.sources.worldbank import search_worldbank
 from src.search_agent.sources.rss_fetcher import fetch_rss_feeds
 from src.search_agent.sources.markets import search_nse, search_bse, search_yfinance
 from src.search_agent.sources.extraction import search_indian_kanoon, search_wipo, fallback_docs_search
+from src.search_agent.sources.gdelt import search_gdelt
+from src.search_agent.sources.economics import search_economic_databases
 
 # Initialize globals
 app = FastAPI()
 breaker = CircuitBreaker()
 ranker = None  # Loaded on startup to avoid blocking module import
+redis_client = None
 
 # Mount static files for the dashboard
 static_dir = os.path.join(os.path.dirname(__file__), "static")
@@ -38,8 +50,24 @@ os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 @app.on_event("startup")
+async def health_check_loop():
+    async def probe():
+        while True:
+            await asyncio.sleep(120)  # every 2 minutes
+            for (engine, cat) in breaker.get_open_engines():
+                breaker.mark_half_open(engine, cat)
+    asyncio.create_task(probe())
+
+@app.on_event("startup")
 async def startup_event():
-    global ranker
+    global ranker, redis_client
+    try:
+        redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
+        await redis_client.ping()
+    except Exception as e:
+        print(f"Failed to connect to Redis: {e}")
+        redis_client = None
+
     # Initialize SQLite db
     init_db()
     # Load ranker models into memory
@@ -98,6 +126,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if not query:
                 continue
                 
+            group_id = f"fetch-{uuid.uuid4().hex[:8]}"
+                
             metrics = {"query": query}
             top_urls = []
             final_answer = ""
@@ -105,6 +135,61 @@ async def websocket_endpoint(websocket: WebSocket):
             
             start_total = time.perf_counter()
             
+            # --- 0. Check Cache ---
+            query_hash = hashlib.md5(query.encode("utf-8")).hexdigest()
+            if redis_client and ranker:
+                try:
+                    query_emb = ranker.get_query_embedding(query)
+                    cache_keys = await redis_client.keys("cache:*")
+                    
+                    best_match_key = None
+                    best_score = 0.0
+                    
+                    for key in cache_keys:
+                        cached_data_str = await redis_client.get(key)
+                        if cached_data_str:
+                            cached_data = json.loads(cached_data_str)
+                            if "embedding" in cached_data:
+                                cached_emb = np.array(cached_data["embedding"])
+                                score = np.dot(query_emb, cached_emb)
+                                if score > best_score:
+                                    best_score = score
+                                    best_match_key = key
+                                    
+                    if best_match_key and best_score > 0.95:
+                        cached_data_str = await redis_client.get(best_match_key)
+                        cached_data = json.loads(cached_data_str)
+                        await websocket.send_json({"type": "stage_start", "stage": "cache", "label": "Getting from Knowledge Base..."})
+                        await asyncio.sleep(0.05)
+                        await websocket.send_json({"type": "stage_done", "stage": "cache", "elapsed_ms": 15})
+                        
+                        await websocket.send_json({"type": "synthesis_token", "text": cached_data.get("final_answer", "")})
+                        
+                        cit_verifs = cached_data.get("cit_verifications", [])
+                        for idx, cit in enumerate(cit_verifs):
+                            await websocket.send_json({
+                                "type": "citation_check",
+                                "n": idx + 1,
+                                "passed": cit["passed"]
+                            })
+                            
+                        metrics["latency_classify_ms"] = 0
+                        metrics["latency_route_ms"] = 0
+                        metrics["latency_searxng_ms"] = 0
+                        metrics["latency_rank_ms"] = 0
+                        metrics["latency_synthesize_ms"] = 15
+                        metrics["citation_pass_rate"] = cached_data.get("citation_pass_rate", 1.0)
+                        metrics["final_answer"] = cached_data.get("final_answer", "")
+                        metrics["top_urls"] = cached_data.get("top_urls", [])
+                        
+                        log_query(**metrics)
+                        
+                        total_time = int((time.perf_counter() - start_total) * 1000)
+                        await websocket.send_json({"type": "done", "total_elapsed_ms": total_time})
+                        continue
+                except Exception as e:
+                    print(f"Error parsing cache: {e}")
+
             # --- 1. Classify ---
             await websocket.send_json({"type": "stage_start", "stage": "classify", "label": "Understanding your question"})
             t0 = time.perf_counter()
@@ -202,41 +287,47 @@ async def websocket_endpoint(websocket: WebSocket):
                     raise e
                     
             if "searxng" in sources:
-                fetch_tasks.append(track_source(do_searxng(), "searxng", "duckduckgo.com", "Searching Web", category))
+                fetch_tasks.append(track_source(do_searxng(), "searxng", "duckduckgo.com", "Searching Web", category, group_id=group_id))
             if "pypi" in sources:
-                fetch_tasks.append(track_source(search_pypi(query, classifier_out.entities), "pypi", "pypi.org", "Searching PyPI", category))
+                fetch_tasks.append(track_source(search_pypi(query, classifier_out.entities), "pypi", "pypi.org", "Searching PyPI", category, group_id=group_id))
             if "npm" in sources:
-                fetch_tasks.append(track_source(search_npm(query, classifier_out.entities), "npm", "npmjs.com", "Searching NPM", category))
+                fetch_tasks.append(track_source(search_npm(query, classifier_out.entities), "npm", "npmjs.com", "Searching NPM", category, group_id=group_id))
             if "github" in sources:
-                fetch_tasks.append(track_source(search_github(query, classifier_out.entities), "github", "github.com", "Searching GitHub", category))
+                fetch_tasks.append(track_source(search_github(query, classifier_out.entities), "github", "github.com", "Searching GitHub", category, group_id=group_id))
             if "arxiv" in sources:
-                fetch_tasks.append(track_source(search_arxiv(query, classifier_out.entities), "arxiv", "arxiv.org", "Searching arXiv", category))
+                fetch_tasks.append(track_source(search_arxiv(query, classifier_out.entities), "arxiv", "arxiv.org", "Searching arXiv", category, group_id=group_id))
             if "wikipedia" in sources:
-                fetch_tasks.append(track_source(search_wikipedia(query, classifier_out.entities), "wikipedia", "wikipedia.org", "Searching Wikipedia", category))
+                fetch_tasks.append(track_source(search_wikipedia(query, classifier_out.entities), "wikipedia", "wikipedia.org", "Searching Wikipedia", category, group_id=group_id))
             if "worldbank" in sources:
-                fetch_tasks.append(track_source(search_worldbank(query, classifier_out.entities), "worldbank", "worldbank.org", "Searching WorldBank", category))
+                fetch_tasks.append(track_source(search_worldbank(query, classifier_out.entities), "worldbank", "worldbank.org", "Searching WorldBank", category, group_id=group_id))
+                
+            if "economic_databases" in sources:
+                fetch_tasks.append(track_source(search_economic_databases(query), "economics", "imf.org", "Querying Economic Databases", category, group_id=group_id))
+                
+            if "gdelt" in sources:
+                fetch_tasks.append(track_source(search_gdelt(query), "gdelt", "gdeltproject.org", "Fetching Global News", category, group_id=group_id))
                 
             if "rss_global_news" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["http://feeds.bbci.co.uk/news/rss.xml", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"]), "rss_global", "bbc.com", "Fetching Breaking News", category))
+                fetch_tasks.append(track_source(fetch_rss_feeds(["http://feeds.bbci.co.uk/news/rss.xml", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"]), "rss_global", "bbc.com", "Fetching Breaking News", category, group_id=group_id))
             if "rss_india_news" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.thehindu.com/news/national/feeder/default.rss", "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms"]), "rss_india", "thehindu.com", "Fetching Indian News", category))
+                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.thehindu.com/news/national/feeder/default.rss", "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms"]), "rss_india", "thehindu.com", "Fetching Indian News", category, group_id=group_id))
             if "rss_india_finance" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.moneycontrol.com/rss/MCtopnews.xml"]), "rss_finance", "moneycontrol.com", "Fetching Financial News", category))
+                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.moneycontrol.com/rss/MCtopnews.xml"]), "rss_finance", "moneycontrol.com", "Fetching Financial News", category, group_id=group_id))
             if "rss_india_public" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://pib.gov.in/newsite/rssenglish.aspx"]), "rss_public", "pib.gov.in", "Fetching Press Releases", category))
+                fetch_tasks.append(track_source(fetch_rss_feeds(["https://pib.gov.in/newsite/rssenglish.aspx"]), "rss_public", "pib.gov.in", "Fetching Press Releases", category, group_id=group_id))
                 
             if "nse" in sources:
-                fetch_tasks.append(track_source(search_nse(query, classifier_out.entities), "nse", "nseindia.com", "Fetching Live NSE", category))
+                fetch_tasks.append(track_source(search_nse(query, classifier_out.entities), "nse", "nseindia.com", "Fetching Live NSE", category, group_id=group_id))
             if "bse" in sources:
-                fetch_tasks.append(track_source(search_bse(query, classifier_out.entities), "bse", "bseindia.com", "Fetching Live BSE", category))
+                fetch_tasks.append(track_source(search_bse(query, classifier_out.entities), "bse", "bseindia.com", "Fetching Live BSE", category, group_id=group_id))
             if "yfinance" in sources:
-                fetch_tasks.append(track_source(search_yfinance(query, classifier_out.entities), "yfinance", "yahoo.com", "Fetching Yahoo Finance", category))
+                fetch_tasks.append(track_source(search_yfinance(query, classifier_out.entities), "yfinance", "yahoo.com", "Fetching Yahoo Finance", category, group_id=group_id))
             if "wipo" in sources:
-                fetch_tasks.append(track_source(search_wipo(query, classifier_out.entities), "wipo", "wipo.int", "Reading Patent Data", category, is_page_visit=True))
+                fetch_tasks.append(track_source(search_wipo(query, classifier_out.entities), "wipo", "wipo.int", "Reading Patent Data", category, group_id=group_id, is_page_visit=True))
             if "indian_kanoon" in sources:
-                fetch_tasks.append(track_source(search_indian_kanoon(query, classifier_out.entities), "indian_kanoon", "indiankanoon.org", "Reading Legal Case", category, is_page_visit=True))
+                fetch_tasks.append(track_source(search_indian_kanoon(query, classifier_out.entities), "indian_kanoon", "indiankanoon.org", "Reading Legal Case", category, group_id=group_id, is_page_visit=True))
             if "fallback_docs" in sources:
-                fetch_tasks.append(track_source(fallback_docs_search(query, classifier_out.entities), "fallback_docs", "docs.python.org", "Deep Reading Docs", category, is_page_visit=True))
+                fetch_tasks.append(track_source(fallback_docs_search(query, classifier_out.entities), "fallback_docs", "docs.python.org", "Deep Reading Docs", category, group_id=group_id, is_page_visit=True))
                 
             raw_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
             
@@ -271,6 +362,34 @@ async def websocket_endpoint(websocket: WebSocket):
                 "result": {"top_urls": top_urls}
             })
             
+            # --- 5. Extraction Fallback ---
+            FALLBACK_THRESHOLD = 0.5
+            if top_3 and top_3[0].get("score", 0) < FALLBACK_THRESHOLD:
+                fallback_url = top_3[0].get("url")
+                if fallback_url:
+                    await websocket.send_json({"type": "stage_start", "stage": "extract_fallback", "label": "Deep reading top source"})
+                    t0_ext = time.perf_counter()
+                    
+                    extracted_text = await track_source(
+                        extract_url(fallback_url),
+                        source_id="extract_fallback",
+                        domain=fallback_url.split('/')[2] if '//' in fallback_url else fallback_url,
+                        label="Fallback Extraction",
+                        category=category,
+                        group_id=group_id,
+                        is_page_visit=True
+                    )
+                    
+                    if extracted_text:
+                        top_3[0]["content"] = extracted_text
+                        
+                    t1_ext = time.perf_counter()
+                    await websocket.send_json({
+                        "type": "stage_done",
+                        "stage": "extract_fallback",
+                        "elapsed_ms": int((t1_ext - t0_ext) * 1000)
+                    })
+
             # --- 6. Synthesize (Streaming) ---
             await websocket.send_json({"type": "stage_start", "stage": "synthesize", "label": "Writing answer"})
             t0 = time.perf_counter()
@@ -309,6 +428,20 @@ async def websocket_endpoint(websocket: WebSocket):
             
             # --- 8. Telemetry Logging ---
             log_query(**metrics)
+            
+            if redis_client and ranker:
+                try:
+                    query_emb = ranker.get_query_embedding(query)
+                    cache_payload = {
+                        "embedding": query_emb.tolist(),
+                        "final_answer": final_answer,
+                        "top_urls": top_urls,
+                        "citation_pass_rate": citation_pass_rate,
+                        "cit_verifications": cit_verifications
+                    }
+                    await redis_client.setex(f"cache:{query_hash}", 300, json.dumps(cache_payload))
+                except Exception as e:
+                    print(f"Failed to set cache: {e}")
             
             total_time = int((time.perf_counter() - start_total) * 1000)
             await websocket.send_json({

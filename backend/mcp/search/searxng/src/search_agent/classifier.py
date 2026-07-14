@@ -2,6 +2,7 @@ import json
 import time
 import os
 from pathlib import Path
+from datetime import datetime
 from openai import AsyncOpenAI
 from .schemas import ClassifierOutput
 from .config import settings
@@ -24,10 +25,13 @@ async def classify_query(query: str) -> ClassifierOutput:
     """
     start_time = time.perf_counter()
     
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    formatted_prompt = SYSTEM_PROMPT.replace("{current_date}", current_date)
+    
     response = await client.chat.completions.create(
         model=settings.groq_model,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": formatted_prompt},
             {"role": "user", "content": query}
         ],
         response_format={"type": "json_object"},

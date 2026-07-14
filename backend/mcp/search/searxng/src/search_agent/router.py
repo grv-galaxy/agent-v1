@@ -44,21 +44,21 @@ def route_query(classifier_output: ClassifierOutput) -> dict:
         elif cat == "academic":
             sources.add("arxiv")
         elif cat == "economic":
-            sources.update(["worldbank", "searxng"])
+            sources.update(["worldbank", "economic_databases", "searxng"])
         elif cat == "finance":
-            sources.update(["yfinance", "searxng"])
+            sources.update(["yfinance", "economic_databases", "searxng"])
         elif cat == "patents":
             sources.update(["wipo", "searxng"])
         elif cat == "legal":
             sources.update(["indian_kanoon", "searxng"])
         elif cat == "news":
-            sources.update(["rss_global_news", "searxng"])
+            sources.update(["rss_global_news", "gdelt", "searxng"])
         elif cat == "india_news":
             sources.update(["rss_india_news", "searxng"])
         elif cat == "india_public":
             sources.update(["rss_india_public", "searxng"])
         elif cat == "india_finance":
-            sources.update(["nse", "bse", "yfinance", "rss_india_finance", "searxng"])
+            sources.update(["nse", "bse", "yfinance", "economic_databases", "rss_india_finance", "searxng"])
         elif cat == "general":
             sources.update(["wikipedia", "searxng"])
         else:

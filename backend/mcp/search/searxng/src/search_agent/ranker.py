@@ -46,6 +46,30 @@ class ONNXRanker:
         sum_mask = np.clip(np.sum(input_mask_expanded, axis=1), a_min=1e-9, a_max=None)
         return sum_embeddings / sum_mask
 
+    def get_query_embedding(self, query: str) -> np.ndarray:
+        """Returns the 1D L2-normalized numpy array for a query using the bi-encoder."""
+        encoded = self.bi_tokenizer.encode(query)
+        input_ids = np.array([encoded.ids], dtype=np.int64)
+        attention_mask = np.array([encoded.attention_mask], dtype=np.int64)
+        
+        inputs = {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask
+        }
+        
+        expected_inputs = [i.name for i in self.bi_session.get_inputs()]
+        if 'token_type_ids' in expected_inputs:
+            inputs['token_type_ids'] = np.array([encoded.type_ids], dtype=np.int64)
+            
+        outputs = self.bi_session.run(None, inputs)
+        token_embeddings = outputs[0]
+        
+        pooled = self._mean_pooling(token_embeddings, attention_mask)
+        norms = np.linalg.norm(pooled, axis=1, keepdims=True)
+        normalized = pooled / np.clip(norms, a_min=1e-9, a_max=None)
+        
+        return normalized[0]
+
     def bi_encoder_rank(self, query: str, results: list[dict]) -> list[dict]:
         """
         First pass: O(N) cosine similarity ranking over all results.

@@ -24,6 +24,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "redis>=8.0.1",
     "requests>=2.34.2",
     "tokenizers>=0.23.1",
     "trafilatura>=2.1.0",

@@ -1,12 +1,45 @@
 import asyncio
+import httpx
 import trafilatura
-from playwright.async_api import async_playwright
+
+# Realistic browser headers to bypass simple bot-blockers
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+def _httpx_fetch_and_extract(url: str) -> str | None:
+    """
+    Fetches a URL using httpx with realistic browser headers and then 
+    extracts the main text content using trafilatura.
+    """
+    try:
+        with httpx.Client(headers=_HEADERS, follow_redirects=True, timeout=15.0) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            return trafilatura.extract(response.text)
+    except Exception as e:
+        print(f"[extractor] httpx fetch failed for {url}: {e}")
+        return None
 
 async def extract_url(url: str, min_length: int = 200) -> str | None:
     """
     Extracts the main content from a URL.
-    Attempts a fast static fetch first. If that fails or yields very little text 
-    (indicating a possible JS-heavy SPA), falls back to Playwright.
+    
+    Strategy:
+    1. Fast path: trafilatura's built-in fetcher (uses simple requests internally)
+    2. Fallback: httpx with full browser-like headers to overcome bot-blockers
+    
+    Playwright has been removed entirely because it requires subprocess spawning
+    which conflicts with Uvicorn's SelectorEventLoop on Windows.
     """
     
     # --- Primary Fast Path (Trafilatura) ---
@@ -22,33 +55,13 @@ async def extract_url(url: str, min_length: int = 200) -> str | None:
     if text and len(text.strip()) >= min_length:
         return text.strip()
         
-    # --- Fallback Path (Playwright) ---
-    # Triggered if trafilatura returns None or very short text
-    print(f"[extractor] Static extraction yielded insufficient data for {url}. Falling back to Playwright...")
-    try:
-        async with async_playwright() as p:
-            # Launch headless chromium
-            browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
-            page = await context.new_page()
-            
-            # Wait for network idle to ensure JS has rendered
-            await page.goto(url, wait_until="networkidle", timeout=15000)
-            html = await page.content()
-            
-            await browser.close()
-            
-            # Extract content from the JS-rendered HTML
-            if html:
-                def _extract_html(h):
-                    return trafilatura.extract(h)
-                
-                dynamic_text = await asyncio.to_thread(_extract_html, html)
-                if dynamic_text:
-                    return dynamic_text.strip()
-                    
-    except Exception as e:
-        print(f"[extractor] Playwright fallback failed for {url}: {e}")
+    # --- Fallback Path (httpx with realistic headers) ---
+    # Triggered if trafilatura returns None or very short text (bot-blocked / SPA)
+    print(f"[extractor] Static extraction insufficient for {url}. Trying httpx with browser headers...")
+    dynamic_text = await asyncio.to_thread(_httpx_fetch_and_extract, url)
+    
+    if dynamic_text and len(dynamic_text.strip()) >= min_length:
+        return dynamic_text.strip()
         
-    # If all else fails, return whatever trafilatura found initially (even if short), or None
+    # If all else fails, return whatever was found initially, or None
     return text.strip() if text else None

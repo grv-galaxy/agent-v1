@@ -34,6 +34,41 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 citation_pass_rate REAL
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tool_contribution (
+                query_id TEXT,
+                source_id TEXT,
+                category TEXT,
+                elapsed_ms INTEGER,
+                called BOOLEAN,
+                returned_results BOOLEAN,
+                result_count INTEGER,
+                survived_biencoder BOOLEAN,
+                survived_crossencoder BOOLEAN,
+                cited_in_answer BOOLEAN,
+                citation_check_passed BOOLEAN,
+                circuit_breaker_state TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS llm_calls (
+                query_id TEXT,
+                step TEXT,
+                model TEXT,
+                provider TEXT,
+                prompt_text TEXT,
+                system_prompt_text TEXT,
+                response_text TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                elapsed_ms INTEGER,
+                cost_usd REAL,
+                temperature REAL,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -81,6 +116,72 @@ def log_query(
             top_urls_str,
             final_answer,
             citation_pass_rate
+        ))
+        conn.commit()
+    finally:
+        conn.close()
+
+def log_tool_contributions(contributions: List[Dict[str, Any]], db_path: str = DEFAULT_DB_PATH) -> None:
+    """Batch inserts tool contributions for a query."""
+    if not contributions:
+        return
+        
+    conn = sqlite3.connect(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.executemany("""
+            INSERT INTO tool_contribution (
+                query_id, source_id, category, elapsed_ms, called, returned_results,
+                result_count, survived_biencoder, survived_crossencoder, cited_in_answer,
+                citation_check_passed, circuit_breaker_state
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, [
+            (
+                c.get("query_id"),
+                c.get("source_id"),
+                c.get("category"),
+                c.get("elapsed_ms"),
+                c.get("called", False),
+                c.get("returned_results", False),
+                c.get("result_count", 0),
+                c.get("survived_biencoder", False),
+                c.get("survived_crossencoder", False),
+                c.get("cited_in_answer", False),
+                c.get("citation_check_passed", False),
+                c.get("circuit_breaker_state")
+            ) for c in contributions
+        ])
+        conn.commit()
+    finally:
+        conn.close()
+
+def log_llm_call(
+    query_id: str,
+    step: str,
+    model: str,
+    provider: str,
+    prompt_text: str,
+    system_prompt_text: Optional[str],
+    response_text: str,
+    input_tokens: Optional[int],
+    output_tokens: Optional[int],
+    total_tokens: Optional[int],
+    elapsed_ms: int,
+    cost_usd: float = 0.0,
+    temperature: Optional[float] = None,
+    db_path: str = DEFAULT_DB_PATH
+) -> None:
+    conn = sqlite3.connect(db_path)
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO llm_calls (
+                query_id, step, model, provider, prompt_text, system_prompt_text,
+                response_text, input_tokens, output_tokens, total_tokens, elapsed_ms, cost_usd, temperature
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            query_id, step, model, provider, prompt_text, system_prompt_text,
+            response_text, input_tokens, output_tokens, total_tokens, elapsed_ms, cost_usd, temperature
         ))
         conn.commit()
     finally:

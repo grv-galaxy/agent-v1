@@ -18,7 +18,7 @@ from src.search_agent.mcp_server import search_web
 from src.search_agent.ranker import ONNXRanker, BI_ENCODER_PATH, CROSS_ENCODER_PATH
 from src.search_agent.synthesizer import synthesize
 from src.search_agent.citations import verify_citations
-from src.search_agent.telemetry import log_query, init_db
+from src.search_agent.telemetry import log_query, init_db, log_tool_contributions, log_llm_call
 from src.search_agent.extractor import extract_url
 import uuid
 import hashlib
@@ -61,19 +61,50 @@ async def health_check_loop():
 @app.on_event("startup")
 async def startup_event():
     global ranker, redis_client
+    
+    print("\n--- System Startup Checks ---")
+    
+    # 1. Check Redis
     try:
         redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
         await redis_client.ping()
+        print("✅ Redis: Connected successfully")
     except Exception as e:
-        print(f"Failed to connect to Redis: {e}")
+        print(f"❌ Redis: Failed to connect ({e})")
         redis_client = None
 
-    # Initialize SQLite db
+    # 2. Check SearXNG
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            resp = await client.get("http://localhost:8080/")
+            resp.raise_for_status()
+        print("✅ SearXNG: Up and running (http://localhost:8080/)")
+    except Exception as e:
+        print(f"❌ SearXNG: Unreachable! Ensure Docker container is running ({e})")
+
+    # 3. Check SQLite DB
     init_db()
-    # Load ranker models into memory
-    print("Loading ONNX rankers...")
-    ranker = ONNXRanker(BI_ENCODER_PATH, CROSS_ENCODER_PATH)
-    print("Models loaded.")
+    print("✅ Database: Initialized")
+
+    # 4. Load Ranker Models
+    try:
+        print("⏳ Loading ONNX Rankers...")
+        ranker = ONNXRanker(BI_ENCODER_PATH, CROSS_ENCODER_PATH)
+        print("✅ Rankers: Loaded (Bi-Encoder + Cross-Encoder)")
+    except Exception as e:
+        print(f"❌ Rankers: Failed to load ({e})")
+
+    # 5. Load NLI Citation Model
+    try:
+        print("⏳ Loading ONNX NLI Citations Model...")
+        from src.search_agent.citations import init_nli
+        init_nli()
+        print("✅ NLI Model: Loaded successfully")
+    except Exception as e:
+        print(f"❌ NLI Model: Failed to load ({e})")
+        
+    print("-----------------------------\n")
 
 @app.get("/")
 async def get_index():
@@ -113,6 +144,135 @@ async def get_history():
     finally:
         conn.close()
 
+def compute_tier(cited_rate: float, calls: int, breaker_trip_rate: float) -> str:
+    if breaker_trip_rate > 0.15:
+        return "unreliable"
+    if cited_rate > 0.30:
+        return "core"
+    if 0.10 <= cited_rate <= 0.30:
+        return "situational"
+    if cited_rate < 0.10 and calls > 5:
+        return "show_piece"
+    return "unknown"
+
+@app.get("/api/dashboard/tool-contribution")
+async def get_tool_contribution(days: int = 7, category: str = "all"):
+    import sqlite3
+    from src.search_agent.telemetry import DEFAULT_DB_PATH
+    
+    conn = sqlite3.connect(DEFAULT_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        
+        # Build query
+        query = """
+            SELECT 
+                source_id,
+                COUNT(*) as total_calls,
+                SUM(CASE WHEN returned_results THEN 1 ELSE 0 END) as returned_count,
+                SUM(CASE WHEN survived_biencoder THEN 1 ELSE 0 END) as biencoder_count,
+                SUM(CASE WHEN survived_crossencoder THEN 1 ELSE 0 END) as crossencoder_count,
+                SUM(CASE WHEN cited_in_answer THEN 1 ELSE 0 END) as cited_count,
+                SUM(CASE WHEN citation_check_passed THEN 1 ELSE 0 END) as verified_count,
+                SUM(CASE WHEN circuit_breaker_state = 'tripped' THEN 1 ELSE 0 END) as trip_count,
+                AVG(elapsed_ms) as avg_latency
+            FROM tool_contribution
+            WHERE timestamp >= datetime('now', ?)
+        """
+        params = [f'-{days} days']
+        
+        if category and category != "all":
+            query += " AND category = ?"
+            params.append(category)
+            
+        query += " GROUP BY source_id"
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        
+        results = []
+        for r in rows:
+            calls = r["total_calls"]
+            if calls == 0:
+                continue
+                
+            returned_rate = r["returned_count"] / calls
+            top3_rate = r["crossencoder_count"] / calls
+            cited_rate = r["cited_count"] / calls
+            trip_rate = r["trip_count"] / calls
+            
+            verified_rate = 0.0
+            if r["cited_count"] > 0:
+                verified_rate = r["verified_count"] / r["cited_count"]
+                
+            tier = compute_tier(cited_rate, calls, trip_rate)
+            
+            results.append({
+                "source_id": r["source_id"],
+                "calls": calls,
+                "avg_latency_ms": round(r["avg_latency"] or 0, 2),
+                "returned_rate": round(returned_rate, 4),
+                "top3_rate": round(top3_rate, 4),
+                "cited_rate": round(cited_rate, 4),
+                "verified_rate": round(verified_rate, 4),
+                "trip_rate": round(trip_rate, 4),
+                "tier": tier
+            })
+            
+        return {"data": results}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+@app.get("/api/dashboard/llm-calls")
+async def get_llm_calls(days: int = 7):
+    import sqlite3
+    from src.search_agent.telemetry import DEFAULT_DB_PATH
+    
+    conn = sqlite3.connect(DEFAULT_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        cursor = conn.cursor()
+        query = """
+            SELECT 
+                step,
+                COUNT(*) as calls,
+                AVG(input_tokens) as avg_in_tokens,
+                AVG(output_tokens) as avg_out_tokens,
+                AVG(elapsed_ms) as avg_latency,
+                SUM(cost_usd) as total_cost
+            FROM llm_calls
+            WHERE timestamp >= datetime('now', ?)
+            GROUP BY step
+        """
+        cursor.execute(query, [f'-{days} days'])
+        rows = cursor.fetchall()
+        
+        results = []
+        for r in rows:
+            calls = r["calls"]
+            if calls == 0:
+                continue
+                
+            avg_cost_per_call = r["total_cost"] / calls
+            results.append({
+                "step": r["step"],
+                "calls": calls,
+                "avg_input_tokens": round(r["avg_in_tokens"] or 0, 2),
+                "avg_output_tokens": round(r["avg_out_tokens"] or 0, 2),
+                "avg_latency_ms": round(r["avg_latency"] or 0, 2),
+                "total_cost_usd": round(r["total_cost"] or 0, 4),
+                "avg_cost_per_call_usd": round(avg_cost_per_call, 4)
+            })
+            
+        return {"data": results}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
 @app.websocket("/ws/query")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -132,6 +292,10 @@ async def websocket_endpoint(websocket: WebSocket):
             top_urls = []
             final_answer = ""
             citation_pass_rate = 0.0
+            
+            query_id = uuid.uuid4().hex
+            tool_contributions = {} # source_id -> dict
+            llm_calls_to_log = []
             
             start_total = time.perf_counter()
             
@@ -166,11 +330,18 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({"type": "synthesis_token", "text": cached_data.get("final_answer", "")})
                         
                         cit_verifs = cached_data.get("cit_verifications", [])
-                        for idx, cit in enumerate(cit_verifs):
+                        for cit in cit_verifs:
                             await websocket.send_json({
                                 "type": "citation_check",
-                                "n": idx + 1,
+                                "n": cit["citation_number"],
                                 "passed": cit["passed"]
+                            })
+                            
+                        # Re-emit the sources_final event from cache
+                        if "sources_final_payload" in cached_data:
+                            await websocket.send_json({
+                                "type": "sources_final",
+                                "sources": cached_data["sources_final_payload"]
                             })
                             
                         metrics["latency_classify_ms"] = 0
@@ -193,7 +364,9 @@ async def websocket_endpoint(websocket: WebSocket):
             # --- 1. Classify ---
             await websocket.send_json({"type": "stage_start", "stage": "classify", "label": "Understanding your question"})
             t0 = time.perf_counter()
-            classifier_out = await classify_query(query)
+            classifier_out, classify_telemetry = await classify_query(query)
+            classify_telemetry["query_id"] = query_id
+            llm_calls_to_log.append(classify_telemetry)
             t1 = time.perf_counter()
             metrics["latency_classify_ms"] = int((t1 - t0) * 1000)
             await websocket.send_json({
@@ -229,6 +402,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 start_type = "page_visit_start" if is_page_visit else "source_start"
                 done_type = "page_visit_done" if is_page_visit else "source_done"
                 
+                tool_contributions[source_id] = {
+                    "query_id": query_id,
+                    "source_id": source_id,
+                    "category": category,
+                    "called": True,
+                    "elapsed_ms": 0,
+                    "returned_results": False,
+                    "result_count": 0,
+                    "survived_biencoder": False,
+                    "survived_crossencoder": False,
+                    "cited_in_answer": False,
+                    "citation_check_passed": False,
+                    "circuit_breaker_state": "closed"
+                }
+                
                 await websocket.send_json({
                     "type": start_type,
                     "source_id": source_id,
@@ -243,22 +431,40 @@ async def websocket_endpoint(websocket: WebSocket):
                 try:
                     res = await coro
                     s1 = time.perf_counter()
+                    elapsed = int((s1 - s0) * 1000)
+                    rcount = len(res) if isinstance(res, list) else 1
+                    
+                    tool_contributions[source_id]["elapsed_ms"] = elapsed
+                    tool_contributions[source_id]["returned_results"] = True
+                    tool_contributions[source_id]["result_count"] = rcount
+                    
+                    if isinstance(res, list):
+                        for item in res:
+                            if isinstance(item, dict):
+                                item["source_id"] = source_id
+                    
                     await websocket.send_json({
                         "type": done_type,
                         "source_id": source_id,
                         "url": domain if is_page_visit else None,
-                        "elapsed_ms": int((s1 - s0) * 1000),
+                        "elapsed_ms": elapsed,
                         "status": "success",
-                        "result_count": len(res) if isinstance(res, list) else 1,
+                        "result_count": rcount,
                         "extraction_method": "trafilatura" if is_page_visit else None
                     })
                     return res
                 except Exception as e:
                     s1 = time.perf_counter()
+                    elapsed = int((s1 - s0) * 1000)
+                    
+                    tool_contributions[source_id]["elapsed_ms"] = elapsed
+                    if "timeout" in str(e).lower() or "circuit" in str(e).lower():
+                        tool_contributions[source_id]["circuit_breaker_state"] = "tripped"
+                        
                     await websocket.send_json({
                         "type": "source_error",
                         "source_id": source_id,
-                        "elapsed_ms": int((s1 - s0) * 1000),
+                        "elapsed_ms": elapsed,
                         "status": "timeout" if "timeout" in str(e).lower() else "error",
                         "circuit_breaker_tripped": True
                     })
@@ -352,6 +558,35 @@ async def websocket_endpoint(websocket: WebSocket):
             top_urls = [r.get("url", "") for r in top_3]
             metrics["top_urls"] = top_urls
             
+            for r in ranked_results:
+                sid = r.get("source_id")
+                if sid and sid in tool_contributions:
+                    tool_contributions[sid]["survived_biencoder"] = True
+                    
+            for r in top_3:
+                sid = r.get("source_id")
+                if sid and sid in tool_contributions:
+                    tool_contributions[sid]["survived_crossencoder"] = True
+            
+            # --- 4.5 Normalize Metadata ---
+            import urllib.parse
+            for i, res in enumerate(top_3):
+                url = res.get("url", "")
+                domain = res.get("domain", "")
+                if not domain and url:
+                    parsed_uri = urllib.parse.urlparse(url)
+                    domain = parsed_uri.netloc.replace("www.", "")
+                res["domain"] = domain
+                
+                if not res.get("favicon") and domain:
+                    res["favicon"] = f"https://www.google.com/s2/favicons?domain={domain}&sz=64"
+                    
+                if not res.get("title"):
+                    res["title"] = f"Source {i+1}"
+                    
+                if not res.get("published_date"):
+                    res["published_date"] = "Date not clear"
+            
             t1 = time.perf_counter()
             metrics["latency_rank_ms"] = int((t1 - t0) * 1000)
             
@@ -422,12 +657,79 @@ async def websocket_endpoint(websocket: WebSocket):
             for idx, cit in enumerate(cit_verifications):
                 await websocket.send_json({
                     "type": "citation_check",
-                    "n": idx + 1,
+                    "n": cit["citation_number"],
                     "passed": cit["passed"]
                 })
+                
+            # Compute Final Sources List for UI
+            source_pass_map = {}
+            for v in cit_verifications:
+                n = v["citation_number"]
+                if n not in source_pass_map:
+                    source_pass_map[n] = []
+                source_pass_map[n].append(v["passed"])
+                
+            sources_final_payload = []
+            for i, res in enumerate(top_3):
+                cit_n = i + 1
+                sid = res.get("source_id")
+                is_cited = cit_n in source_pass_map
+                
+                # If cited multiple times, all checks must pass for the source to be marked as fully verified
+                if is_cited:
+                    passed = all(source_pass_map[cit_n])
+                else:
+                    passed = True  # Not cited, so didn't fail
+                    
+                if sid and sid in tool_contributions:
+                    if is_cited:
+                        tool_contributions[sid]["cited_in_answer"] = True
+                        tool_contributions[sid]["citation_check_passed"] = passed
+                    
+                sources_final_payload.append({
+                    "citation_n": cit_n,
+                    "url": res.get("url", ""),
+                    "title": res.get("title", ""),
+                    "domain": res.get("domain", ""),
+                    "favicon": res.get("favicon", ""),
+                    "published_date": res.get("published_date", ""),
+                    "citation_check_passed": passed
+                })
+                
+            await websocket.send_json({
+                "type": "sources_final",
+                "sources": sources_final_payload
+            })
             
             # --- 8. Telemetry Logging ---
             log_query(**metrics)
+            
+            try:
+                from src.search_agent.synthesizer import format_context, load_prompt
+                synth_system = load_prompt().replace("{context}", format_context(top_3))
+                in_toks = len(synth_system + query) // 4
+                out_toks = len(final_answer) // 4
+                llm_calls_to_log.append({
+                    "query_id": query_id,
+                    "step": "synthesize",
+                    "model": "groq_model",
+                    "provider": "api",
+                    "prompt_text": query,
+                    "system_prompt_text": synth_system,
+                    "response_text": final_answer,
+                    "input_tokens": in_toks,
+                    "output_tokens": out_toks,
+                    "total_tokens": in_toks + out_toks,
+                    "elapsed_ms": metrics.get("latency_synthesize_ms", 0),
+                    "cost_usd": 0.0,
+                    "temperature": 0.2
+                })
+            except Exception as e:
+                print(f"Error computing synthesis telemetry: {e}")
+                
+            log_tool_contributions(list(tool_contributions.values()))
+            for call in llm_calls_to_log:
+                log_llm_call(**call)
             
             if redis_client and ranker:
                 try:
@@ -437,13 +739,21 @@ async def websocket_endpoint(websocket: WebSocket):
                         "final_answer": final_answer,
                         "top_urls": top_urls,
                         "citation_pass_rate": citation_pass_rate,
-                        "cit_verifications": cit_verifications
+                        "cit_verifications": cit_verifications,
+                        "sources_final_payload": sources_final_payload
                     }
                     await redis_client.setex(f"cache:{query_hash}", 300, json.dumps(cache_payload))
                 except Exception as e:
                     print(f"Failed to set cache: {e}")
             
             total_time = int((time.perf_counter() - start_total) * 1000)
+            
+            await websocket.send_json({
+                "type": "telemetry_dump",
+                "tool_contributions": list(tool_contributions.values()),
+                "llm_calls": llm_calls_to_log
+            })
+            
             await websocket.send_json({
                 "type": "done",
                 "total_elapsed_ms": total_time

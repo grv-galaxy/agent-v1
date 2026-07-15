@@ -15,6 +15,7 @@
     <div class="tabs-container">
         <div class="tab active" id="tab-search">Live Search</div>
         <div class="tab" id="tab-history">History</div>
+        <div class="tab" id="tab-dashboard">Dashboard</div>
     </div>
     
     <!-- Search View -->
@@ -31,6 +32,21 @@
         <!-- Synthesized Answer -->
         <div class="synthesis-container" id="synthesis-container" style="display: none;">
             <div class="answer-text" id="answer-text"></div>
+            <!-- Sources Section -->
+            <div id="sources-container" class="sources-section" style="display: none;"></div>
+        </div>
+
+        <!-- Telemetry Dashboard (View A) -->
+        <div id="telemetry-dashboard" class="telemetry-dashboard" style="display: none;">
+            <h3>Query Telemetry</h3>
+            <div class="telemetry-section">
+                <h4>Tool Contribution Funnel</h4>
+                <div id="funnel-container" class="funnel-container"></div>
+            </div>
+            <div class="telemetry-section">
+                <h4>LLM Calls</h4>
+                <div id="llm-panel-container" class="llm-panel-container"></div>
+            </div>
         </div>
     </div>
 
@@ -38,6 +54,71 @@
     <div id="view-history" style="display: none;">
         <div class="history-list" id="history-list">
             <!-- Dynamic history cards injected here -->
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="view-dashboard" style="display: none;">
+        <div class="dashboard-controls">
+            <select id="dash-time-range" class="dash-select">
+                <option value="1">Last 24 Hours</option>
+                <option value="7" selected>Last 7 Days</option>
+                <option value="30">Last 30 Days</option>
+            </select>
+            <select id="dash-category" class="dash-select">
+                <option value="all">All Categories</option>
+                <option value="general">General</option>
+                <option value="news">News</option>
+                <option value="finance">Finance</option>
+                <option value="weather">Weather</option>
+            </select>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>Tool Contribution Leaderboard</h3>
+            <div class="table-responsive">
+                <table class="dashboard-table" id="tool-leaderboard">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Tier</th>
+                            <th>Calls</th>
+                            <th>Avg Latency</th>
+                            <th>Return %</th>
+                            <th>Top-8 %</th>
+                            <th>Top-3 %</th>
+                            <th>Cited %</th>
+                            <th>Citation Pass %</th>
+                            <th>Breaker Trips</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Injected rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="dashboard-section">
+            <h3>LLM Cost & Tokens</h3>
+            <div class="table-responsive">
+                <table class="dashboard-table" id="llm-cost-table">
+                    <thead>
+                        <tr>
+                            <th>Step</th>
+                            <th>Calls</th>
+                            <th>Avg Input</th>
+                            <th>Avg Output</th>
+                            <th>Avg Latency</th>
+                            <th>Total Cost</th>
+                            <th>Avg Cost/Call</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Injected rows -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 

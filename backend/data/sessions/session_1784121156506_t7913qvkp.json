@@ -1,0 +1,96 @@
+{
+  "id": "session_1784121156506_t7913qvkp",
+  "session_id": "session_1784121156506_t7913qvkp",
+  "title": "hey",
+  "startedAt": "2026-07-15T13:12:36.506Z",
+  "displayMessages": [
+    {
+      "id": "0f6136b1-f4c4-4430-a3e9-29b584084560",
+      "role": "user",
+      "content": "hey"
+    },
+    {
+      "id": "8958751f-738d-4208-a9f5-c817911e50a8",
+      "role": "assistant",
+      "content": "Hello! How can I help you today?"
+    },
+    {
+      "id": "015d024d-f610-44e2-ac9c-ec9e0583d140",
+      "role": "user",
+      "content": "who am i"
+    },
+    {
+      "id": "93ca0731-b9ed-4861-a51c-e16c8cbd412e",
+      "role": "assistant",
+      "content": "Based on the information I have, you are Gaurav. You live in New Delhi and follow a vegetarian diet.\n\nYou have a strong interest in politics, national security, and social issues. Technically, you are fond of Python and prefer using dark mode. You also know how to create PDFs."
+    },
+    {
+      "id": "1bd4ec42-0076-4cc8-aaf5-83fadeee4ba9",
+      "role": "user",
+      "content": "what can u do"
+    },
+    {
+      "id": "dfd93ccc-8d94-4ba1-8897-03b5db0f9303",
+      "role": "assistant",
+      "content": "I can help with a wide range of tasks, including:\n\n* **Word documents (.docx)** – creating, editing, formatting, adding tables, headers/footers, tracked changes, and using templates.  \n* **PowerPoint presentations (.pptx)** – building slide decks, applying layouts, adding speaker notes, working with master slides and templates.  \n* **Spreadsheets (.xlsx, .csv)** – generating or modifying sheets, writing formulas, creating charts, pivot tables, and cleaning data.  \n* **PDFs** – reading, merging, splitting, filling form fields, applying OCR, adding watermarks, and encrypting files.  \n* **User‑specific information** – recalling details you’ve shared about yourself (preferences, background, etc.).  \n* **Fact‑checking and up‑to‑date information** – looking up current events, biographies, or any factual data you need.  \n\nIn addition to these specialized abilities, I can answer general questions, brainstorm ideas, draft emails or reports, help with programming (especially Python), provide explanations on a variety of topics, and assist with everyday problem‑solving. Just let me know what you’d like to work on!"
+    },
+    {
+      "id": "39c71dd5-a3e6-45ef-ad46-5bf71ef06d1a",
+      "role": "user",
+      "content": "who is the new cm of new delhi"
+    },
+    {
+      "id": "f128a7a6-ad14-4cfa-b0b2-e1ca5c41ffa3",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Chief Minister of Delhi\",\n  \"url\": \"https://en.wikipedia.org/wiki/Chief_Minister_of_Delhi\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Chief_Minister_of_Delhi%2C_Smt._Rekha_Gupta.jpg/250px-Chief_Minister_of_Delhi%2C_Smt._Rekha_Gupta.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Rekha Gupta (since 20 February 2025)\",\n    \"Style\": \"The Honourable | Her Excellency\",\n    \"Type\": \"Head of government\",\n    \"Status\": \"Leader of the Executive\",\n    \"Abbreviation\": \"CMoDelhi\",\n    \"Member of\": \"State cabinet | Legislative Assembly\",\n    \"Reports to\": \"Lieutenant Governor of Delhi | Delhi Legislative Assembly\",\n    \"Residence\": \"6, Flagstaff Road, | Civil Lines, Delhi\",\n    \"Seat\": \"Old Secretariat, Vikram Nagar, Civil Lines, | New Delhi\",\n    \"Nominator\": \"MLAs of the majority party or alliance\",\n    \"Appointer\": \"Lt. Governor of Delhi | by | convention | based on appointees ability to command | confidence | in the | Delhi Legislative Assembly\",\n    \"Term length\": \"At the confidence of the assembly | Chief minister's term is for five years and is subject to no | term limits | .\",\n    \"Inaugural holder\": \"Brahm Prakash\",\n    \"Formation\": \"First formation | : 17 March 1952 | ; 74 years ago | ( | 1952-03-17 | ) | \\u2013 1 November 1956 | ; 69 years ago | ( | 1956-11-01 | ) | ; | dissolved in between | 1 November 1956 | ; 69 years ago | ( | 1956-11-01 | ) | \\u2013 1 December 1993 | ; 32 years ago | ( | 1993-12-01 | ) | ; | Reintroduction | : 1 December 1993 | ; 32 years ago | ( | 1993-12-01 | )\",\n    \"Deputy\": \"Deputy Chief Minister of Delhi\",\n    \"Salary\": \"\\u20b9390,000 (US$4,100)\",\n    \"Website\": \"Official website\"\n  },\n  \"points\": [\n    \"The chief minister of the National Capital Territory of Delhi is the head of government of the National Capital Territory of Delhi.\",\n    \"According to the Constitution of India, the lieutenant governor is the National Capital Territory of Delhi's de jure head, but de facto executive authority rests with its chief minister.\",\n    \"Following elections to the Delhi Legislative Assembly, the lieutenant governor usually invites the party with a majority of seats to form the government.\",\n    \"The president of India, on the advice of the lieutenant governor, appoints the chief minister, whose council of ministers are collectively responsible to the assembly.\",\n    \"Given that the person has the confidence of the assembly, the chief minister's term is for five years and is subject to no term limits.\",\n    \"Rekha Gupta is the incumbent chief minister since February 2025.\"\n  ],\n  \"query\": \"Chief Minister of Delhi\",\n  \"synthesis\": \"- **Current Leader:** Rekha\\u202fGupta (since\\u202f20\\u202fFeb\\u202f2025)  \\n- **Title:** The Honourable\\u202f|\\u202fHer Excellency  \\n- **Role:** Head of government (Leader of the Executive)  \\n- **Abbreviation:** CMoDelhi  \\n- **Part of:** State cabinet and Delhi Legislative Assembly  \\n- **Reports to:** Lieutenant Governor of Delhi and Delhi Legislative Assembly  \\n- **Official Residence:** 6\\u202fFlagstaff Road, Civil Lines, Delhi  \\n- **Office Location:** Old Secretariat, Vikram Nagar, Civil Lines, New\\u202fDelhi  \\n- **Nominated by:** MLAs of the majority party or alliance  \\n- **Appointed by:** Lieutenant Governor of Delhi (by convention, based on ability to command confidence of the Legislative Assembly)  \\n- **Term:** Serves while enjoying assembly confidence; five\\u2011year term, no term limits  \\n- **First holder:** Brahm\\u202fPrakash  \\n- **Established:** First formed\\u202f17\\u202fMar\\u202f1952; re\\u2011introduced\\u202f1\\u202fDec\\u202f1993  \\n- **Deputy:** Deputy Chief Minister of Delhi  \\n- **Salary:** \\u20b9390,000 (\\u2248\\u202fUS$4,100) per month  \\n- **Website:** Official website\"\n}\n```\n"
+    }
+  ],
+  "contextMessages": [
+    {
+      "id": "0f6136b1-f4c4-4430-a3e9-29b584084560",
+      "role": "user",
+      "content": "hey"
+    },
+    {
+      "id": "8958751f-738d-4208-a9f5-c817911e50a8",
+      "role": "assistant",
+      "content": "Hello! How can I help you today?"
+    },
+    {
+      "id": "015d024d-f610-44e2-ac9c-ec9e0583d140",
+      "role": "user",
+      "content": "who am i"
+    },
+    {
+      "id": "93ca0731-b9ed-4861-a51c-e16c8cbd412e",
+      "role": "assistant",
+      "content": "Based on the information I have, you are Gaurav. You live in New Delhi and follow a vegetarian diet.\n\nYou have a strong interest in politics, national security, and social issues. Technically, you are fond of Python and prefer using dark mode. You also know how to create PDFs."
+    },
+    {
+      "id": "1bd4ec42-0076-4cc8-aaf5-83fadeee4ba9",
+      "role": "user",
+      "content": "what can u do"
+    },
+    {
+      "id": "dfd93ccc-8d94-4ba1-8897-03b5db0f9303",
+      "role": "assistant",
+      "content": "I can help with a wide range of tasks, including:\n\n* **Word documents (.docx)** – creating, editing, formatting, adding tables, headers/footers, tracked changes, and using templates.  \n* **PowerPoint presentations (.pptx)** – building slide decks, applying layouts, adding speaker notes, working with master slides and templates.  \n* **Spreadsheets (.xlsx, .csv)** – generating or modifying sheets, writing formulas, creating charts, pivot tables, and cleaning data.  \n* **PDFs** – reading, merging, splitting, filling form fields, applying OCR, adding watermarks, and encrypting files.  \n* **User‑specific information** – recalling details you’ve shared about yourself (preferences, background, etc.).  \n* **Fact‑checking and up‑to‑date information** – looking up current events, biographies, or any factual data you need.  \n\nIn addition to these specialized abilities, I can answer general questions, brainstorm ideas, draft emails or reports, help with programming (especially Python), provide explanations on a variety of topics, and assist with everyday problem‑solving. Just let me know what you’d like to work on!"
+    },
+    {
+      "id": "39c71dd5-a3e6-45ef-ad46-5bf71ef06d1a",
+      "role": "user",
+      "content": "who is the new cm of new delhi"
+    },
+    {
+      "id": "f128a7a6-ad14-4cfa-b0b2-e1ca5c41ffa3",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Chief Minister of Delhi\",\n  \"url\": \"https://en.wikipedia.org/wiki/Chief_Minister_of_Delhi\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Chief_Minister_of_Delhi%2C_Smt._Rekha_Gupta.jpg/250px-Chief_Minister_of_Delhi%2C_Smt._Rekha_Gupta.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Rekha Gupta (since 20 February 2025)\",\n    \"Style\": \"The Honourable | Her Excellency\",\n    \"Type\": \"Head of government\",\n    \"Status\": \"Leader of the Executive\",\n    \"Abbreviation\": \"CMoDelhi\",\n    \"Member of\": \"State cabinet | Legislative Assembly\",\n    \"Reports to\": \"Lieutenant Governor of Delhi | Delhi Legislative Assembly\",\n    \"Residence\": \"6, Flagstaff Road, | Civil Lines, Delhi\",\n    \"Seat\": \"Old Secretariat, Vikram Nagar, Civil Lines, | New Delhi\",\n    \"Nominator\": \"MLAs of the majority party or alliance\",\n    \"Appointer\": \"Lt. Governor of Delhi | by | convention | based on appointees ability to command | confidence | in the | Delhi Legislative Assembly\",\n    \"Term length\": \"At the confidence of the assembly | Chief minister's term is for five years and is subject to no | term limits | .\",\n    \"Inaugural holder\": \"Brahm Prakash\",\n    \"Formation\": \"First formation | : 17 March 1952 | ; 74 years ago | ( | 1952-03-17 | ) | \\u2013 1 November 1956 | ; 69 years ago | ( | 1956-11-01 | ) | ; | dissolved in between | 1 November 1956 | ; 69 years ago | ( | 1956-11-01 | ) | \\u2013 1 December 1993 | ; 32 years ago | ( | 1993-12-01 | ) | ; | Reintroduction | : 1 December 1993 | ; 32 years ago | ( | 1993-12-01 | )\",\n    \"Deputy\": \"Deputy Chief Minister of Delhi\",\n    \"Salary\": \"\\u20b9390,000 (US$4,100)\",\n    \"Website\": \"Official website\"\n  },\n  \"points\": [\n    \"The chief minister of the National Capital Territory of Delhi is the head of government of the National Capital Territory of Delhi.\",\n    \"According to the Constitution of India, the lieutenant governor is the National Capital Territory of Delhi's de jure head, but de facto executive authority rests with its chief minister.\",\n    \"Following elections to the Delhi Legislative Assembly, the lieutenant governor usually invites the party with a majority of seats to form the government.\",\n    \"The president of India, on the advice of the lieutenant governor, appoints the chief minister, whose council of ministers are collectively responsible to the assembly.\",\n    \"Given that the person has the confidence of the assembly, the chief minister's term is for five years and is subject to no term limits.\",\n    \"Rekha Gupta is the incumbent chief minister since February 2025.\"\n  ],\n  \"query\": \"Chief Minister of Delhi\",\n  \"synthesis\": \"- **Current Leader:** Rekha\\u202fGupta (since\\u202f20\\u202fFeb\\u202f2025)  \\n- **Title:** The Honourable\\u202f|\\u202fHer Excellency  \\n- **Role:** Head of government (Leader of the Executive)  \\n- **Abbreviation:** CMoDelhi  \\n- **Part of:** State cabinet and Delhi Legislative Assembly  \\n- **Reports to:** Lieutenant Governor of Delhi and Delhi Legislative Assembly  \\n- **Official Residence:** 6\\u202fFlagstaff Road, Civil Lines, Delhi  \\n- **Office Location:** Old Secretariat, Vikram Nagar, Civil Lines, New\\u202fDelhi  \\n- **Nominated by:** MLAs of the majority party or alliance  \\n- **Appointed by:** Lieutenant Governor of Delhi (by convention, based on ability to command confidence of the Legislative Assembly)  \\n- **Term:** Serves while enjoying assembly confidence; five\\u2011year term, no term limits  \\n- **First holder:** Brahm\\u202fPrakash  \\n- **Established:** First formed\\u202f17\\u202fMar\\u202f1952; re\\u2011introduced\\u202f1\\u202fDec\\u202f1993  \\n- **Deputy:** Deputy Chief Minister of Delhi  \\n- **Salary:** \\u20b9390,000 (\\u2248\\u202fUS$4,100) per month  \\n- **Website:** Official website\"\n}\n```\n"
+    }
+  ],
+  "rolling_summary": "",
+  "compression_epoch": 0,
+  "summary_history": [],
+  "hasUserTitle": true,
+  "pinned": false,
+  "archived": false
+}

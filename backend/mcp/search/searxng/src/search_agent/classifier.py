@@ -18,10 +18,10 @@ client = AsyncOpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-async def classify_query(query: str) -> ClassifierOutput:
+async def classify_query(query: str) -> tuple[ClassifierOutput, dict]:
     """
     Classifies the user query using the Groq LLM API.
-    Returns a strict JSON parsed into a ClassifierOutput Pydantic model.
+    Returns a tuple of (ClassifierOutput, telemetry_dict).
     """
     start_time = time.perf_counter()
     
@@ -38,15 +38,33 @@ async def classify_query(query: str) -> ClassifierOutput:
         temperature=0.0,
     )
     
-    elapsed_ms = (time.perf_counter() - start_time) * 1000
-    print(f"[telemetry] classify stage took {elapsed_ms:.2f} ms")
+    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+    print(f"[telemetry] classify stage took {elapsed_ms} ms")
     
     content = response.choices[0].message.content
+    usage = response.usage
+    input_tokens = usage.prompt_tokens if usage else len(formatted_prompt + query) // 4
+    output_tokens = usage.completion_tokens if usage else len(content) // 4
+    total_tokens = usage.total_tokens if usage else input_tokens + output_tokens
+    
+    llm_telemetry = {
+        "step": "classify",
+        "model": settings.groq_model,
+        "provider": "api",
+        "prompt_text": query,
+        "system_prompt_text": formatted_prompt,
+        "response_text": content,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "elapsed_ms": elapsed_ms,
+        "cost_usd": 0.0,
+        "temperature": 0.0
+    }
     
     # Parse the returned JSON string into our Pydantic model
-    # Groq should return valid JSON because of response_format json_object
     parsed_dict = json.loads(content)
-    return ClassifierOutput(**parsed_dict)
+    return ClassifierOutput(**parsed_dict), llm_telemetry
 
 if __name__ == "__main__":
     import asyncio

@@ -122,6 +122,33 @@
         </div>
     </div>
 
+    <!-- Tool Trace Modal -->
+    <div id="tool-trace-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close" id="modal-close">&times;</span>
+            <h2 id="modal-tool-name">Tool Name</h2>
+            <p>Status: <span id="modal-status"></span></p>
+            
+            <div class="modal-grid">
+                <div class="modal-box">
+                    <h3>Bi-Encoder</h3>
+                    <p>Rank: <strong id="modal-bi-rank">-</strong></p>
+                    <p>Score: <strong id="modal-bi-score">-</strong></p>
+                </div>
+                <div class="modal-box">
+                    <h3>Cross-Encoder (Top 3)</h3>
+                    <p>Rank: <strong id="modal-cross-rank">-</strong></p>
+                    <p>Score: <strong id="modal-cross-score">-</strong></p>
+                </div>
+            </div>
+            
+            <div class="modal-section raw-content-section">
+                <h3>Raw Tool Output</h3>
+                <pre><code id="modal-raw-content">No data returned.</code></pre>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 <script src="/static/app.js"></script>

@@ -1,6 +1,7 @@
 import httpx
 import json
 from fastmcp import FastMCP
+from src.search_agent.http_client import http_client
 
 # Initialize the FastMCP server
 mcp = FastMCP("SearXNG Search Agent")
@@ -37,24 +38,23 @@ async def search_web(
 
     # We use a strict timeout to fail fast so the orchestrator's circuit breaker can react.
     # The timeout should be slightly higher than SearXNG's internal timeout (which we set to 2.5s)
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            response = await client.get(SEARXNG_URL, params=params)
-            response.raise_for_status()
-            
-            # We return it as a formatted string rather than raw JSON because 
-            # MCP tools typically return strings, but since we will parse it 
-            # in the orchestrator, we just return the text payload directly.
-            return response.text
-            
-        except httpx.TimeoutException:
-            # MCP tools can return error strings or raise exceptions
-            # The orchestrator will catch this to trip the circuit breaker
-            raise RuntimeError(f"Timeout connecting to SearXNG")
-        except httpx.HTTPStatusError as e:
-            raise RuntimeError(f"HTTP Error from SearXNG: {e.response.status_code}")
-        except httpx.RequestError as e:
-            raise RuntimeError(f"Request Error connecting to SearXNG: {str(e)}")
+    try:
+        response = await http_client.get(SEARXNG_URL, params=params)
+        response.raise_for_status()
+        
+        # We return it as a formatted string rather than raw JSON because 
+        # MCP tools typically return strings, but since we will parse it 
+        # in the orchestrator, we just return the text payload directly.
+        return response.text
+        
+    except httpx.TimeoutException:
+        # MCP tools can return error strings or raise exceptions
+        # The orchestrator will catch this to trip the circuit breaker
+        raise RuntimeError(f"Timeout connecting to SearXNG")
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(f"HTTP Error from SearXNG: {e.response.status_code}")
+    except httpx.RequestError as e:
+        raise RuntimeError(f"Request Error connecting to SearXNG: {str(e)}")
 
 # This allows running via `fastmcp dev src/search_agent/mcp_server.py`
 if __name__ == "__main__":

@@ -186,6 +186,11 @@ document.addEventListener("DOMContentLoaded", () => {
             case "telemetry_dump":
                 renderTelemetryDashboard(data.tool_contributions, data.llm_calls);
                 break;
+            case "diagnostic_trace":
+                if (typeof renderDiagnosticTrace === "function") {
+                    renderDiagnosticTrace(data.trace);
+                }
+                break;
             case "done": {
                 const totalMs = data.total_elapsed_ms;
                 const totalSec = (totalMs / 1000).toFixed(2);
@@ -485,6 +490,13 @@ document.addEventListener("DOMContentLoaded", () => {
             
             html += `<div class="funnel-status">${statusText}</div>`;
             row.innerHTML = html;
+            
+            row.onclick = function() {
+                if (typeof window.openToolTraceModal === "function") {
+                    window.openToolTraceModal(tool, statusText);
+                }
+            };
+            
             funnelContainer.appendChild(row);
         });
         
@@ -653,3 +665,41 @@ window.highlightSourceCard = function(n) {
         }, 1500);
     }
 };
+
+window.openToolTraceModal = function(tool, statusText) {
+    const modal = document.getElementById('tool-trace-modal');
+    if (!modal) return;
+    
+    document.getElementById('modal-tool-name').textContent = tool.source_id;
+    document.getElementById('modal-status').textContent = statusText;
+    
+    document.getElementById('modal-bi-rank').textContent = tool.bi_rank || '-';
+    document.getElementById('modal-bi-score').textContent = tool.bi_score !== undefined ? tool.bi_score : '-';
+    
+    document.getElementById('modal-cross-rank').textContent = tool.cross_rank || '-';
+    document.getElementById('modal-cross-score').textContent = tool.cross_score !== undefined ? tool.cross_score : '-';
+    
+    const rawCode = document.getElementById('modal-raw-content');
+    if (tool.raw_content) {
+        rawCode.textContent = tool.raw_content;
+    } else {
+        rawCode.textContent = 'No data returned.';
+    }
+    
+    modal.style.display = 'block';
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const traceModal = document.getElementById('tool-trace-modal');
+    const traceModalClose = document.getElementById('modal-close');
+    if (traceModalClose) {
+        traceModalClose.onclick = function() {
+            if(traceModal) traceModal.style.display = 'none';
+        };
+    }
+    window.addEventListener('click', function(event) {
+        if (event.target == traceModal) {
+            traceModal.style.display = 'none';
+        }
+    });
+});

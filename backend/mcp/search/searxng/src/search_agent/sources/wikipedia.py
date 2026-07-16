@@ -30,12 +30,12 @@ async def search_wikipedia(query: str, entities: list[str] = None) -> list[dict]
         content_lines.append("Facts:")
         for k, v in facts.items():
             content_lines.append(f"  {k}: {v}")
-            
-    points = res.get("points", [])
-    if points:
-        content_lines.append("Summary:")
-        for p in points:
-            content_lines.append(f"  - {p}")
+    else:
+        points = res.get("points", [])
+        if points:
+            content_lines.append("Summary:")
+            for p in points:
+                content_lines.append(f"  - {p}")
             
     content = "\n".join(content_lines)
     

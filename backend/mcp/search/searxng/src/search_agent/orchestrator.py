@@ -32,8 +32,8 @@ from src.search_agent.sources.github import search_github
 from src.search_agent.sources.arxiv import search_arxiv
 from src.search_agent.sources.wikipedia import search_wikipedia
 from src.search_agent.sources.worldbank import search_worldbank
-from src.search_agent.sources.rss_fetcher import fetch_rss_feeds
-from src.search_agent.sources.markets import search_nse, search_bse, search_yfinance
+
+from src.search_agent.sources.markets import search_indian_markets, search_yfinance
 from src.search_agent.sources.extraction import search_indian_kanoon, search_wipo, fallback_docs_search
 from src.search_agent.sources.gdelt import search_gdelt
 from src.search_agent.sources.economics import search_economic_databases
@@ -68,9 +68,9 @@ async def startup_event():
     try:
         redis_client = aioredis.from_url("redis://localhost:6379", decode_responses=True)
         await redis_client.ping()
-        print("✅ Redis: Connected successfully")
+        print("[OK] Redis: Connected successfully")
     except Exception as e:
-        print(f"❌ Redis: Failed to connect ({e})")
+        print(f"[FAIL] Redis: Failed to connect ({e})")
         redis_client = None
 
     # 2. Check SearXNG
@@ -79,30 +79,30 @@ async def startup_event():
         async with httpx.AsyncClient(timeout=2.0) as client:
             resp = await client.get("http://localhost:8080/")
             resp.raise_for_status()
-        print("✅ SearXNG: Up and running (http://localhost:8080/)")
+        print("[OK] SearXNG: Up and running (http://localhost:8080/)")
     except Exception as e:
-        print(f"❌ SearXNG: Unreachable! Ensure Docker container is running ({e})")
+        print(f"[FAIL] SearXNG: Unreachable! Ensure Docker container is running ({e})")
 
     # 3. Check SQLite DB
     init_db()
-    print("✅ Database: Initialized")
+    print("[OK] Database: Initialized")
 
     # 4. Load Ranker Models
     try:
-        print("⏳ Loading ONNX Rankers...")
+        print("[WAIT] Loading ONNX Rankers...")
         ranker = ONNXRanker(BI_ENCODER_PATH, CROSS_ENCODER_PATH)
-        print("✅ Rankers: Loaded (Bi-Encoder + Cross-Encoder)")
+        print("[OK] Rankers: Loaded (Bi-Encoder + Cross-Encoder)")
     except Exception as e:
-        print(f"❌ Rankers: Failed to load ({e})")
+        print(f"[FAIL] Rankers: Failed to load ({e})")
 
     # 5. Load NLI Citation Model
     try:
-        print("⏳ Loading ONNX NLI Citations Model...")
+        print("[WAIT] Loading ONNX NLI Citations Model...")
         from src.search_agent.citations import init_nli
         init_nli()
-        print("✅ NLI Model: Loaded successfully")
+        print("[OK] NLI Model: Loaded successfully")
     except Exception as e:
-        print(f"❌ NLI Model: Failed to load ({e})")
+        print(f"[FAIL] NLI Model: Failed to load ({e})")
         
     print("-----------------------------\n")
 
@@ -297,6 +297,20 @@ async def websocket_endpoint(websocket: WebSocket):
             tool_contributions = {} # source_id -> dict
             llm_calls_to_log = []
             
+            is_diagnostic_mode = False
+            diagnostic_tool = None
+            diagnostic_trace = {
+                "raw_tool_output": [],
+                "ranked_output": [],
+                "synthesizer_context": ""
+            }
+            
+            if query.startswith("@"):
+                parts = query.split(" ", 1)
+                diagnostic_tool = parts[0][1:] # Strip "@"
+                query = parts[1] if len(parts) > 1 else ""
+                is_diagnostic_mode = True
+            
             start_total = time.perf_counter()
             
             # --- 0. Check Cache ---
@@ -362,24 +376,40 @@ async def websocket_endpoint(websocket: WebSocket):
                     print(f"Error parsing cache: {e}")
 
             # --- 1. Classify ---
-            await websocket.send_json({"type": "stage_start", "stage": "classify", "label": "Understanding your question"})
-            t0 = time.perf_counter()
-            classifier_out, classify_telemetry = await classify_query(query)
-            classify_telemetry["query_id"] = query_id
-            llm_calls_to_log.append(classify_telemetry)
-            t1 = time.perf_counter()
-            metrics["latency_classify_ms"] = int((t1 - t0) * 1000)
-            await websocket.send_json({
-                "type": "stage_done", 
-                "stage": "classify", 
-                "elapsed_ms": metrics["latency_classify_ms"],
-                "result": classifier_out.model_dump()
-            })
+            if is_diagnostic_mode:
+                class MockClassifier:
+                    def __init__(self):
+                        self.entities = []
+                        self.categories = ["diagnostic"]
+                        self.language_hint = "en-US"
+                        self.date_range = None
+                classifier_out = MockClassifier()
+                await websocket.send_json({"type": "stage_start", "stage": "classify", "label": f"Diagnostic Mode: Forcing {diagnostic_tool}"})
+                await asyncio.sleep(0.1)
+                metrics["latency_classify_ms"] = 0
+                await websocket.send_json({"type": "stage_done", "stage": "classify", "elapsed_ms": 0, "result": {"diagnostic": True}})
+            else:
+                await websocket.send_json({"type": "stage_start", "stage": "classify", "label": "Understanding your question"})
+                t0 = time.perf_counter()
+                classifier_out, classify_telemetry = await classify_query(query)
+                classify_telemetry["query_id"] = query_id
+                llm_calls_to_log.append(classify_telemetry)
+                t1 = time.perf_counter()
+                metrics["latency_classify_ms"] = int((t1 - t0) * 1000)
+                await websocket.send_json({
+                    "type": "stage_done", 
+                    "stage": "classify", 
+                    "elapsed_ms": metrics["latency_classify_ms"],
+                    "result": classifier_out.model_dump()
+                })
             
             # --- 2. Route ---
             await websocket.send_json({"type": "stage_start", "stage": "route", "label": "Choosing sources"})
             t0 = time.perf_counter()
-            route_params = route_query(classifier_out)
+            if is_diagnostic_mode:
+                route_params = {"categories": "diagnostic", "sources": [diagnostic_tool]}
+            else:
+                route_params = route_query(classifier_out)
             t1 = time.perf_counter()
             metrics["latency_route_ms"] = int((t1 - t0) * 1000)
             await websocket.send_json({
@@ -442,6 +472,10 @@ async def websocket_endpoint(websocket: WebSocket):
                         for item in res:
                             if isinstance(item, dict):
                                 item["source_id"] = source_id
+                        if len(res) > 0 and isinstance(res[0], dict):
+                            tool_contributions[source_id]["raw_content"] = str(res[0].get("content", "")) # Truncation removed as per user request
+                    elif isinstance(res, str):
+                        tool_contributions[source_id]["raw_content"] = res
                     
                     await websocket.send_json({
                         "type": done_type,
@@ -513,19 +547,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if "gdelt" in sources:
                 fetch_tasks.append(track_source(search_gdelt(query), "gdelt", "gdeltproject.org", "Fetching Global News", category, group_id=group_id))
                 
-            if "rss_global_news" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["http://feeds.bbci.co.uk/news/rss.xml", "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"]), "rss_global", "bbc.com", "Fetching Breaking News", category, group_id=group_id))
-            if "rss_india_news" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.thehindu.com/news/national/feeder/default.rss", "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms"]), "rss_india", "thehindu.com", "Fetching Indian News", category, group_id=group_id))
-            if "rss_india_finance" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://www.moneycontrol.com/rss/MCtopnews.xml"]), "rss_finance", "moneycontrol.com", "Fetching Financial News", category, group_id=group_id))
-            if "rss_india_public" in sources:
-                fetch_tasks.append(track_source(fetch_rss_feeds(["https://pib.gov.in/newsite/rssenglish.aspx"]), "rss_public", "pib.gov.in", "Fetching Press Releases", category, group_id=group_id))
-                
-            if "nse" in sources:
-                fetch_tasks.append(track_source(search_nse(query, classifier_out.entities), "nse", "nseindia.com", "Fetching Live NSE", category, group_id=group_id))
-            if "bse" in sources:
-                fetch_tasks.append(track_source(search_bse(query, classifier_out.entities), "bse", "bseindia.com", "Fetching Live BSE", category, group_id=group_id))
+            if "indian_markets" in sources:
+                fetch_tasks.append(track_source(search_indian_markets(query, classifier_out.entities), "indian_markets", "yahoo.com", "Fetching Indian Markets", category, group_id=group_id))
             if "yfinance" in sources:
                 fetch_tasks.append(track_source(search_yfinance(query, classifier_out.entities), "yfinance", "yahoo.com", "Fetching Yahoo Finance", category, group_id=group_id))
             if "wipo" in sources:
@@ -542,7 +565,25 @@ async def websocket_endpoint(websocket: WebSocket):
                 if isinstance(res, list):
                     search_results.extend(res)
                     
+            if is_diagnostic_mode:
+                diagnostic_trace["raw_tool_output"] = search_results
+
+            # --- Speculative PDF Extraction ---
+            speculative_extract_task = None
+            speculative_extract_url = None
+            
+            searxng_results = [r for r in search_results if r.get("source_id") == "searxng"]
+            if searxng_results and searxng_results[0].get("url", "").lower().endswith(".pdf"):
+                speculative_extract_url = searxng_results[0].get("url")
+                speculative_extract_task = asyncio.create_task(extract_url(speculative_extract_url))
             if not search_results:
+                if is_diagnostic_mode:
+                    await websocket.send_json({
+                        "type": "telemetry_dump",
+                        "diagnostic_trace": diagnostic_trace,
+                        "tool_contributions": list(tool_contributions.values()),
+                        "llm_calls": llm_calls_to_log
+                    })
                 await websocket.send_json({"error": "All search sources failed or returned empty."})
                 continue
                 
@@ -552,21 +593,40 @@ async def websocket_endpoint(websocket: WebSocket):
             # --- 4. Rank ---
             await websocket.send_json({"type": "stage_start", "stage": "rank", "label": "Ranking results"})
             t0 = time.perf_counter()
-            ranked_results = ranker.rank_results(query, search_results)
-            # Take top 3 for the LLM
-            top_3 = ranked_results[:3]
+            if is_diagnostic_mode:
+                # Bypass ranking mostly so we can see what the tool actually passed
+                ranked_results = search_results
+                top_3 = ranked_results[:3]
+                diagnostic_trace["ranked_output"] = top_3
+            else:
+                bi_ranked = ranker.bi_encoder_rank(query, search_results)
+                for idx, r in enumerate(bi_ranked):
+                    sid = r.get("source_id")
+                    if sid and sid in tool_contributions:
+                        current_bi_rank = tool_contributions[sid].get("bi_rank")
+                        if current_bi_rank is None or (idx + 1) < current_bi_rank:
+                            tool_contributions[sid]["bi_score"] = round(r.get("_bi_score", 0), 4)
+                            tool_contributions[sid]["bi_rank"] = idx + 1
+                            if idx < 8:
+                                tool_contributions[sid]["survived_biencoder"] = True
+                        
+                top_8_bi_ranked = bi_ranked[:8]
+                cross_ranked = ranker.cross_encoder_rerank(query, top_8_bi_ranked)
+                for idx, r in enumerate(cross_ranked):
+                    sid = r.get("source_id")
+                    if sid and sid in tool_contributions:
+                        current_cross_rank = tool_contributions[sid].get("cross_rank")
+                        if current_cross_rank is None or (idx + 1) < current_cross_rank:
+                            tool_contributions[sid]["cross_score"] = round(r.get("_cross_score", 0), 4)
+                            tool_contributions[sid]["cross_rank"] = idx + 1
+                            if (idx + 1) <= 3:
+                                tool_contributions[sid]["survived_crossencoder"] = True
+                            
+                ranked_results = cross_ranked
+                top_3 = cross_ranked[:3]
+                
             top_urls = [r.get("url", "") for r in top_3]
             metrics["top_urls"] = top_urls
-            
-            for r in ranked_results:
-                sid = r.get("source_id")
-                if sid and sid in tool_contributions:
-                    tool_contributions[sid]["survived_biencoder"] = True
-                    
-            for r in top_3:
-                sid = r.get("source_id")
-                if sid and sid in tool_contributions:
-                    tool_contributions[sid]["survived_crossencoder"] = True
             
             # --- 4.5 Normalize Metadata ---
             import urllib.parse
@@ -599,21 +659,66 @@ async def websocket_endpoint(websocket: WebSocket):
             
             # --- 5. Extraction Fallback ---
             FALLBACK_THRESHOLD = 0.5
-            if top_3 and top_3[0].get("score", 0) < FALLBACK_THRESHOLD:
+            if not is_diagnostic_mode and top_3 and top_3[0].get("score", 0) < FALLBACK_THRESHOLD:
                 fallback_url = top_3[0].get("url")
                 if fallback_url:
-                    await websocket.send_json({"type": "stage_start", "stage": "extract_fallback", "label": "Deep reading top source"})
-                    t0_ext = time.perf_counter()
-                    
-                    extracted_text = await track_source(
-                        extract_url(fallback_url),
-                        source_id="extract_fallback",
-                        domain=fallback_url.split('/')[2] if '//' in fallback_url else fallback_url,
-                        label="Fallback Extraction",
-                        category=category,
-                        group_id=group_id,
-                        is_page_visit=True
-                    )
+                    if speculative_extract_task and fallback_url == speculative_extract_url:
+                        await websocket.send_json({"type": "stage_start", "stage": "extract_fallback", "label": "Waiting for background PDF extraction"})
+                        
+                        fallback_domain = fallback_url.split('/')[2] if '//' in fallback_url else fallback_url
+                        await websocket.send_json({
+                            "type": "page_visit_start",
+                            "source_id": "extract_fallback",
+                            "domain": fallback_domain,
+                            "label": "Fallback Extraction",
+                            "category": category,
+                            "group_id": group_id,
+                            "url": fallback_url
+                        })
+                        
+                        t0_ext = time.perf_counter()
+                        try:
+                            extracted_text = await asyncio.wait_for(speculative_extract_task, timeout=10.0)
+                        except Exception as e:
+                            print(f"Speculative extraction failed: {e}")
+                            extracted_text = None
+                            
+                        tool_contributions["extract_fallback"] = {
+                            "query_id": query_id,
+                            "source_id": "extract_fallback",
+                            "category": category,
+                            "called": True,
+                            "elapsed_ms": int((time.perf_counter() - t0_ext) * 1000),
+                            "returned_results": bool(extracted_text),
+                            "result_count": 1 if extracted_text else 0,
+                            "raw_content": str(extracted_text) if extracted_text else "",
+                            "survived_biencoder": False,
+                            "survived_crossencoder": False,
+                            "cited_in_answer": False,
+                            "citation_check_passed": False,
+                            "circuit_breaker_state": "closed"
+                        }
+                        
+                        await websocket.send_json({
+                            "type": "page_visit_done",
+                            "source_id": "extract_fallback"
+                        })
+                    else:
+                        if speculative_extract_task:
+                            speculative_extract_task.cancel()
+                            
+                        await websocket.send_json({"type": "stage_start", "stage": "extract_fallback", "label": "Deep reading top source"})
+                        t0_ext = time.perf_counter()
+                        
+                        extracted_text = await track_source(
+                            extract_url(fallback_url),
+                            source_id="extract_fallback",
+                            domain=fallback_url.split('/')[2] if '//' in fallback_url else fallback_url,
+                            label="Fallback Extraction",
+                            category=category,
+                            group_id=group_id,
+                            is_page_visit=True
+                        )
                     
                     if extracted_text:
                         top_3[0]["content"] = extracted_text
@@ -624,12 +729,44 @@ async def websocket_endpoint(websocket: WebSocket):
                         "stage": "extract_fallback",
                         "elapsed_ms": int((t1_ext - t0_ext) * 1000)
                     })
-
+            else:
+                if speculative_extract_task:
+                    speculative_extract_task.cancel()
             # --- 6. Synthesize (Streaming) ---
             await websocket.send_json({"type": "stage_start", "stage": "synthesize", "label": "Writing answer"})
             t0 = time.perf_counter()
+            
+            from src.search_agent.synthesizer import synthesize, format_context, load_prompt
+            
+            if is_diagnostic_mode:
+                context_str = format_context(top_3)
+                diagnostic_trace["synthesizer_context"] = context_str
+                
+                # Use a barebones prompt for diagnostic mode
+                system_message = "Synthesize the following context to answer the user query exactly based on the text. If not present, say so.\n\n" + context_str
+                diagnostic_trace["synthesizer_system_prompt"] = system_message
+                
+                # Mock the generator manually for diagnostic
+                import src.search_agent.config
+                from openai import AsyncOpenAI
+                temp_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1", api_key=src.search_agent.config.settings.groq_api_key)
+                
+                async def custom_synth():
+                    resp = await temp_client.chat.completions.create(
+                        model=src.search_agent.config.settings.groq_model,
+                        messages=[{"role": "system", "content": system_message}, {"role": "user", "content": query}],
+                        stream=True, temperature=0.0
+                    )
+                    async for c in resp:
+                        if c.choices and c.choices[0].delta.content:
+                            yield c.choices[0].delta.content
+                
+                synth_generator = custom_synth()
+            else:
+                synth_generator = synthesize(query, top_3)
+            
             answer_chunks = []
-            async for chunk in synthesize(query, top_3):
+            async for chunk in synth_generator:
                 answer_chunks.append(chunk)
                 await websocket.send_json({
                     "type": "synthesis_token",
@@ -751,7 +888,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({
                 "type": "telemetry_dump",
                 "tool_contributions": list(tool_contributions.values()),
-                "llm_calls": llm_calls_to_log
+                "llm_calls": llm_calls_to_log,
+                "diagnostic_trace": diagnostic_trace if is_diagnostic_mode else None
             })
             
             await websocket.send_json({
@@ -767,3 +905,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({"error": str(e)})
         except:
             pass
+
+
+
+

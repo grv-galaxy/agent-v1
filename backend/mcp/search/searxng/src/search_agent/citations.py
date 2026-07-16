@@ -90,8 +90,13 @@ def verify_citations(synthesized_text: str, top_results: list[dict]) -> list[dic
     
     for match in segments:
         claim_text = match.group(1).strip()
-        sentences = re.split(r'[.?!]\s+', claim_text)
-        last_sentence = sentences[-1] if sentences else claim_text
+        sentences = re.split(r'(?<!\b\d)[.?!]\s+', claim_text)
+        last_sentence = sentences[-1].strip() if sentences else claim_text
+        
+        # If the last sentence is a fragment (e.g., less than 5 words), 
+        # the NLI model will struggle. Use the full claim block instead.
+        if len(last_sentence.split()) < 5:
+            last_sentence = claim_text
         
         try:
             cit_num = int(match.group(2))

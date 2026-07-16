@@ -52,13 +52,13 @@ def route_query(classifier_output: ClassifierOutput) -> dict:
         elif cat == "legal":
             sources.update(["indian_kanoon", "searxng"])
         elif cat == "news":
-            sources.update(["rss_global_news", "gdelt", "searxng"])
+            sources.update(["gdelt", "searxng"])
         elif cat == "india_news":
-            sources.update(["rss_india_news", "searxng"])
+            sources.update(["searxng"])
         elif cat == "india_public":
-            sources.update(["rss_india_public", "searxng"])
+            sources.update(["searxng"])
         elif cat == "india_finance":
-            sources.update(["nse", "bse", "yfinance", "economic_databases", "rss_india_finance", "searxng"])
+            sources.update(["indian_markets", "yfinance", "economic_databases", "searxng"])
         elif cat == "general":
             sources.update(["wikipedia", "searxng"])
         else:

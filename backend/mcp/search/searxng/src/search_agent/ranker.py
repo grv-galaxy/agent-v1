@@ -160,6 +160,9 @@ class ONNXRanker:
         # Cross encoder yields a single logit per pair [batch_size, 1]
         scores = logits.flatten()
         
+        # Apply sigmoid to normalize to 0-1 range
+        scores = 1 / (1 + np.exp(-scores))
+        
         scored_results = []
         for res, score in zip(candidates, scores):
             res_copy = dict(res)

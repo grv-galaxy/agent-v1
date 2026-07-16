@@ -37,6 +37,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tool_contribution (
                 query_id TEXT,
+                sub_query_id TEXT,
                 source_id TEXT,
                 category TEXT,
                 elapsed_ms INTEGER,
@@ -54,6 +55,7 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_calls (
                 query_id TEXT,
+                sub_query_id TEXT,
                 step TEXT,
                 model TEXT,
                 provider TEXT,
@@ -69,6 +71,19 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.commit()
+        
+        # Retrofit existing tables if they don't have the column
+        try:
+            cursor.execute("ALTER TABLE tool_contribution ADD COLUMN sub_query_id TEXT")
+        except sqlite3.OperationalError:
+            pass
+            
+        try:
+            cursor.execute("ALTER TABLE llm_calls ADD COLUMN sub_query_id TEXT")
+        except sqlite3.OperationalError:
+            pass
+            
         conn.commit()
     finally:
         conn.close()
@@ -131,13 +146,14 @@ def log_tool_contributions(contributions: List[Dict[str, Any]], db_path: str = D
         cursor = conn.cursor()
         cursor.executemany("""
             INSERT INTO tool_contribution (
-                query_id, source_id, category, elapsed_ms, called, returned_results,
+                query_id, sub_query_id, source_id, category, elapsed_ms, called, returned_results,
                 result_count, survived_biencoder, survived_crossencoder, cited_in_answer,
                 citation_check_passed, circuit_breaker_state
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, [
             (
                 c.get("query_id"),
+                c.get("sub_query_id"),
                 c.get("source_id"),
                 c.get("category"),
                 c.get("elapsed_ms"),
@@ -169,6 +185,7 @@ def log_llm_call(
     elapsed_ms: int,
     cost_usd: float = 0.0,
     temperature: Optional[float] = None,
+    sub_query_id: Optional[str] = None,
     db_path: str = DEFAULT_DB_PATH
 ) -> None:
     conn = sqlite3.connect(db_path)
@@ -176,11 +193,11 @@ def log_llm_call(
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO llm_calls (
-                query_id, step, model, provider, prompt_text, system_prompt_text,
+                query_id, sub_query_id, step, model, provider, prompt_text, system_prompt_text,
                 response_text, input_tokens, output_tokens, total_tokens, elapsed_ms, cost_usd, temperature
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            query_id, step, model, provider, prompt_text, system_prompt_text,
+            query_id, sub_query_id, step, model, provider, prompt_text, system_prompt_text,
             response_text, input_tokens, output_tokens, total_tokens, elapsed_ms, cost_usd, temperature
         ))
         conn.commit()

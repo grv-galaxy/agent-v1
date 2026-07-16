@@ -10,6 +10,8 @@ Respond with JSON only, no preamble. The JSON must adhere to the following schem
 - entities: array of strings representing key terms, people, companies, or concepts. If the category is "finance", ensure the entity is a valid stock ticker or company name, NOT a generic phrase like "ENERGY EFFICIENCY STANDARDS".
 - date_range: string representing a time constraint (e.g. "past month", "2023", "last 24 hours"), or null if none.
 - language_hint: string representing a region/language (e.g. "en-IN" for India, "de" for Germany), or null if none.
+- requires_deep_research: boolean. Set to true if the query is highly complex and requires multi-hop deep research. Examples include comparative analysis ("X vs Y"), multi-entity questions ("economic impact of A and B"), or questions requiring synthesis across distinct fact types. Set to false for simple lookups, single-entity facts, or straightforward questions.
+- deep_research_reasoning: string. If requires_deep_research is true, provide a brief sentence explaining why. If false, leave empty.
 
 EXAMPLES:
 
@@ -19,7 +21,9 @@ User: "latest tesla earnings report"
   "confidence": 0.95,
   "entities": ["tesla", "earnings report"],
   "date_range": "recent",
-  "language_hint": null
+  "language_hint": null,
+  "requires_deep_research": false,
+  "deep_research_reasoning": ""
 }
 
 User: "how to reverse a string in python"
@@ -28,7 +32,9 @@ User: "how to reverse a string in python"
   "confidence": 0.98,
   "entities": ["python", "reverse string"],
   "date_range": null,
-  "language_hint": null
+  "language_hint": null,
+  "requires_deep_research": false,
+  "deep_research_reasoning": ""
 }
 
 User: "covid 19 vaccine efficacy statistics india"
@@ -37,7 +43,9 @@ User: "covid 19 vaccine efficacy statistics india"
   "confidence": 0.90,
   "entities": ["covid 19", "vaccine efficacy", "statistics", "india"],
   "date_range": null,
-  "language_hint": "en-IN"
+  "language_hint": "en-IN",
+  "requires_deep_research": true,
+  "deep_research_reasoning": "Query requires synthesizing statistics on vaccine efficacy specific to India."
 }
 
 User: "what is the capital of france"
@@ -46,5 +54,7 @@ User: "what is the capital of france"
   "confidence": 0.99,
   "entities": ["capital", "france"],
   "date_range": null,
-  "language_hint": null
+  "language_hint": null,
+  "requires_deep_research": false,
+  "deep_research_reasoning": ""
 }

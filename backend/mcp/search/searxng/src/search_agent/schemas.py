@@ -19,3 +19,19 @@ class ClassifierOutput(BaseModel):
         default=None,
         description="Region or language hint if the query specifies one (e.g., 'en-IN' for India, 'de' for Germany). Null if none."
     )
+    requires_deep_research: bool = Field(
+        default=False,
+        description="True if the query requires multi-hop deep research (e.g. comparative analysis, multi-entity questions, synthesis across distinct fact types). False for simple lookups or single-entity facts."
+    )
+    deep_research_reasoning: str = Field(
+        default="",
+        description="A brief sentence explaining why the query requires deep research, if applicable. Leave empty if requires_deep_research is false."
+    )
+
+class PlannerOutput(BaseModel):
+    sub_queries: List[str] = Field(
+        description="List of 3 to 4 distinct, non-overlapping sub-queries to execute in parallel."
+    )
+    reasoning: str = Field(
+        description="Brief reasoning behind the decomposition strategy."
+    )

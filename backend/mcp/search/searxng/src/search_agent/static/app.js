@@ -139,7 +139,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ws = new WebSocket(`ws://${window.location.host}/ws/query`);
         
         ws.onopen = () => {
-            ws.send(JSON.stringify({ query: query }));
+            const isDeepResearch = document.getElementById("deep-search-checkbox")?.checked || false;
+            ws.send(JSON.stringify({ query: query, deep_research: isDeepResearch }));
         };
 
         ws.onmessage = (event) => {

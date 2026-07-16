@@ -50,6 +50,7 @@ body {
   margin-bottom: 20px;
 }
 
+
 .search-input {
   width: 100%;
   padding: 16px 24px;
@@ -61,6 +62,65 @@ body {
   font-family: var(--font-ui);
   outline: none;
   box-sizing: border-box;
+  backdrop-filter: var(--glass-blur);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* --- Deep Search Toggle --- */
+.search-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.deep-search-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-muted);
+  user-select: none;
+  align-self: flex-end;
+}
+
+.deep-search-toggle input {
+  display: none;
+}
+
+.deep-search-toggle .slider {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  transition: 0.3s;
+}
+
+.deep-search-toggle .slider::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: white;
+  top: 3px;
+  left: 3px;
+  transition: 0.3s;
+}
+
+.deep-search-toggle input:checked + .slider {
+  background-color: var(--accent);
+}
+
+.deep-search-toggle input:checked + .slider::before {
+  transform: translateX(16px);
+}
 
 /* --- Diagnostic Trace UI --- */
 .diagnostic-tools-helper {
@@ -132,14 +192,9 @@ body {
   white-space: pre-wrap;
   word-wrap: break-word;
 }
-  backdrop-filter: var(--glass-blur);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
 
-.search-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 15px var(--accent-glow);
-}
+
+
 
 /* --- Trace Container --- */
 .trace-container {
@@ -1112,3 +1167,4 @@ body {
 .funnel-row:hover {
   background-color: rgba(255,255,255,0.05);
 }
+

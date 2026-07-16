@@ -21,7 +21,7 @@ async def test_classify_query_parses_json_correctly(mock_classifier_json):
         mock_create.return_value = mock_response
         
         # Run the function
-        result = await classify_query("test query about earnings")
+        result, telemetry = await classify_query("test query about earnings")
         
         # Verify the result is parsed correctly into the Pydantic model
         assert isinstance(result, ClassifierOutput)

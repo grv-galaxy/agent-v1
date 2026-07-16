@@ -44,16 +44,9 @@ def init_nli():
     except Exception as e:
         print(f"Failed to load NLI model: {e}")
 
-def check_entailment(claim: str, snippet: str) -> bool:
-    """Checks if snippet entails claim using NLI ONNX model."""
-    if not claim.strip() or not snippet.strip():
-        return False
-        
-    init_nli()
+def _run_nli(claim: str, snippet: str) -> bool:
     if not nli_session or not nli_tokenizer:
         return False
-        
-    # NLI pairs are usually (premise, hypothesis). So (snippet, claim).
     encoded = nli_tokenizer.encode(snippet, claim)
     
     input_ids = np.array([encoded.ids], dtype=np.int64)
@@ -71,12 +64,37 @@ def check_entailment(claim: str, snippet: str) -> bool:
     try:
         outputs = nli_session.run(None, inputs)
         logits = outputs[0][0] # shape (3,)
-        
-        # If the highest probability class is entailment, return True
         return bool(np.argmax(logits) == entailment_idx)
     except Exception as e:
         print(f"NLI inference error: {e}")
         return False
+
+def check_entailment(claim: str, snippet: str) -> bool:
+    """Checks if snippet entails claim using NLI ONNX model."""
+    if not claim.strip() or not snippet.strip():
+        return False
+        
+    init_nli()
+    
+    if len(snippet) > 2000:
+        import textwrap
+        chunks = textwrap.wrap(snippet, width=800, break_long_words=False)
+        claim_words = set(re.findall(r'\w+', claim.lower()))
+        
+        scored = []
+        for c in chunks:
+            c_words = set(re.findall(r'\w+', c.lower()))
+            overlap = len(claim_words.intersection(c_words))
+            scored.append((overlap, c))
+            
+        scored.sort(key=lambda x: x[0], reverse=True)
+        
+        for overlap, chunk in scored[:3]:
+            if overlap > 0 and _run_nli(claim, chunk):
+                return True
+        return False
+    else:
+        return _run_nli(claim, snippet)
 
 def verify_citations(synthesized_text: str, top_results: list[dict]) -> list[dict]:
     """

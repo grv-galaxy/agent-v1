@@ -65,6 +65,9 @@ def route_query(classifier_output: ClassifierOutput) -> dict:
             # Fallback to searxng for other topics
             sources.add("searxng")
             
+    if getattr(classifier_output, 'use_wikipedia', False):
+        sources.add("wikipedia")
+        
     if not sources:
         sources.add("searxng")
             

@@ -8,6 +8,8 @@ RULES:
 3. You MUST cite your sources using inline numbered brackets corresponding to the source number, like [1] or [2].
 4. Citations MUST be placed at the end of complete, grammatical sentences. Do NOT place citations next to fragmented bullet points or partial sentences, as the verification system requires full sentences to validate facts.
 5. Be concise, direct, and well-structured.
+6. Do NOT include a 'References' or 'Sources' list at the end of your response. The system UI will generate the bibliography automatically.
 
 SEARCH RESULTS:
 {context}
+

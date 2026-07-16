@@ -1,3 +1,8 @@
+import sys
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import time
 import json
 import asyncio
@@ -524,9 +529,9 @@ async def execute_sub_pipeline(
     speculative_extract_url = None
     
     searxng_results = [r for r in search_results if r.get("source_id") == "searxng"]
-    if searxng_results and searxng_results[0].get("url", "").lower().endswith(".pdf"):
+    if searxng_results:
         speculative_extract_url = searxng_results[0].get("url")
-        speculative_extract_task = asyncio.create_task(extract_url(speculative_extract_url))
+        speculative_extract_task = asyncio.create_task(extract_url(speculative_extract_url, query=query))
     if not search_results:
         if is_diagnostic_mode:
             await websocket.send_json({
@@ -574,7 +579,17 @@ async def execute_sub_pipeline(
                         tool_contributions[sid]["survived_crossencoder"] = True
                     
         ranked_results = cross_ranked
-        top_3 = cross_ranked[:3]
+        
+        # Force Wikipedia as the #1 result if requested
+        if getattr(classifier_out, 'use_wikipedia', False):
+            wiki_results = [r for r in cross_ranked if r.get("source_id") == "wikipedia"]
+            other_results = [r for r in cross_ranked if r.get("source_id") != "wikipedia"]
+            if wiki_results:
+                top_3 = (wiki_results + other_results)[:3]
+            else:
+                top_3 = cross_ranked[:3]
+        else:
+            top_3 = cross_ranked[:3]
         
     top_urls = [r.get("url", "") for r in top_3]
     metrics["top_urls"] = top_urls
@@ -663,7 +678,7 @@ async def execute_sub_pipeline(
                 t0_ext = time.perf_counter()
                 
                 extracted_text = await track_source(
-                    extract_url(fallback_url),
+                    extract_url(fallback_url, query=query),
                     source_id="extract_fallback",
                     domain=fallback_url.split('/')[2] if '//' in fallback_url else fallback_url,
                     label="Fallback Extraction",
@@ -1028,6 +1043,7 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_json({"error": str(e)})
         except:
             pass
+
 
 
 

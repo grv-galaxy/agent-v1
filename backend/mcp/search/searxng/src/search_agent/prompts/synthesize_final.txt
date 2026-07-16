@@ -12,3 +12,5 @@ INSTRUCTIONS:
 3. The final answer should sound like a single, unified report, not just a concatenation of separate pieces.
 4. Do not include filler text like "Based on the reports". Just deliver the final synthesized answer directly.
 5. If the reports do not contain enough information to fully answer the original query, synthesize what you have and note the limitations.
+6. Do NOT include a 'References' or 'Sources' list at the end of your response. The system UI will generate the bibliography automatically.
+

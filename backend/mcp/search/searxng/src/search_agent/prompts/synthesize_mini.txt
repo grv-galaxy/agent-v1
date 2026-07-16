@@ -8,6 +8,8 @@ INSTRUCTIONS:
 2. If the context does not contain enough information to fully answer the sub-query, state what is missing. Do not hallucinate.
 3. CRITICAL: You must preserve the citation indices exactly as they appear in the context. Use [1], [2], etc., where the information is sourced.
 4. Do not include introductory filler like "Here is the report" or "Based on the context". Just write the factual report.
+5. Do NOT include a 'References' or 'Sources' list at the end of your response.
 
 CONTEXT:
 {context}
+

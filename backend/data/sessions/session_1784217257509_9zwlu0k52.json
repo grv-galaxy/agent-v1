@@ -1,0 +1,116 @@
+{
+  "id": "session_1784217257509_9zwlu0k52",
+  "session_id": "session_1784217257509_9zwlu0k52",
+  "title": "who is the current home minister",
+  "startedAt": "2026-07-16T15:54:17.509Z",
+  "displayMessages": [
+    {
+      "id": "17ae7eea-4124-4868-820c-3a9c42400071",
+      "role": "user",
+      "content": "who is the current home minister"
+    },
+    {
+      "id": "413aef92-058b-4690-acff-8bd0aa527553",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Minister of Home Affairs (India)\",\n  \"url\": \"https://en.wikipedia.org/wiki/Minister_of_Home_Affairs_(India)\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Amit_Shah_photographed_during_the_first_Union_Cabinet_Meeting_of_the_18th_Lok_Sabha_%28cropped%29.jpg/330px-Amit_Shah_photographed_during_the_first_Union_Cabinet_Meeting_of_the_18th_Lok_Sabha_%28cropped%29.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Amit Shah (since 30 May 2019 ( 2019-05-30 ))\",\n    \"Abbreviation\": \"MHA\",\n    \"Member of\": \"Central Cabinet of India | Cabinet Committee on Security\",\n    \"Reports to\": \"President of India | Prime Minister of India | Parliament of India\",\n    \"Residence\": \"6A, Krishna Menon Marg, | New Delhi\",\n    \"Seat\": \"Room No. 104, | North Block | , | New Delhi\",\n    \"Appointer\": \"President of India | on the recommendation of the | Prime Minister\",\n    \"Formation\": \"15 August 1947\",\n    \"First holder\": \"Sardar Vallabhbhai Patel\",\n    \"Deputy\": \"Minister of State for Home Affairs\"\n  },\n  \"points\": [\n    \"The Minister of Home Affairs or the Home Minister is the head of the Ministry of Home Affairs of the Government of India.\",\n    \"One of the senior-most portfolios in the Central Cabinet, the chief responsibility of the home minister is the maintenance of the internal security of India; the country's large police force comes under its jurisdiction.\",\n    \"Occasionally, they are assisted by the minister of state of home affairs and the lower-ranked deputy minister of home affairs.\"\n  ],\n  \"query\": \"current Home Minister of India\",\n  \"synthesis\": \"- **Current Home Minister:** Amit\\u202fShah (in office since\\u202f30\\u202fMay\\u202f2019)  \\n- **Short form:** MHA (Ministry of Home Affairs)  \\n- **Part of:** Central Cabinet of India and the Cabinet Committee on Security  \\n- **Reports to:** President, Prime Minister, and Parliament of India  \\n- **Official residence:** 6A, Krishna\\u202fMenon\\u202fMarg, New\\u202fDelhi  \\n- **Office location:** Room\\u202fNo.\\u202f104, North Block, New\\u202fDelhi  \\n- **Appointed by:** President of India, on the Prime Minister\\u2019s recommendation  \\n- **Ministry created:** 15\\u202fAugust\\u202f1947  \\n- **First Home Minister:** Sardar\\u202fVallabhbhai\\u202fPatel  \\n- **Deputy minister:** Minister of State for Home Affairs\"\n}\n```\n"
+    },
+    {
+      "id": "7798085a-1ead-41ca-ac12-006abafd513e",
+      "role": "user",
+      "content": "who is the current pm of isreal"
+    },
+    {
+      "id": "e042fdd6-420b-4539-adee-801495080a80",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"List of prime ministers of Israel\",\n  \"url\": \"https://en.wikipedia.org/wiki/List_of_prime_ministers_of_Israel\",\n  \"image_url\": null,\n  \"facts\": {},\n  \"points\": [\n    \"The prime minister of Israel is the head of government and chief executive of the State of Israel.\"\n  ],\n  \"query\": \"current prime minister of Israel\",\n  \"synthesis\": \"- The prime minister of Israel serves as the head of government and chief executive of the State of Israel.  \\n- The supplied excerpt does not specify the name of the current office\\u2011holder.\"\n}\n```\n"
+    },
+    {
+      "id": "73135279-dd9b-49ab-b5fb-621f9dd206b4",
+      "role": "user",
+      "content": "i want the current pm name"
+    },
+    {
+      "id": "17df8830-f06a-440d-810d-bddf8470ca92",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Prime Minister of India\",\n  \"url\": \"https://en.wikipedia.org/wiki/Prime_Minister_of_India\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/The_official_portrait_of_Shri_Narendra_Modi%2C_the_Prime_Minister_of_the_Republic_of_India.jpg/250px-The_official_portrait_of_Shri_Narendra_Modi%2C_the_Prime_Minister_of_the_Republic_of_India.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Narendra Modi (since 26 May 2014)\",\n    \"Style\": \"The Honourable | (formal) | Mr. Prime Minister | (informal) | His Excellency | (diplomatic)\",\n    \"Type\": \"Head of government\",\n    \"Abbreviation\": \"PM\",\n    \"Member of\": \"Parliament of India | Union Council of Ministers\",\n    \"Reports to\": \"The President | The Vice President | Lok Sabha\",\n    \"Residence\": \"Panchavati\",\n    \"Seat\": \"Seva Teerth, New Delhi\",\n    \"Nominator\": \"MPs | of the | Lok Sabha\",\n    \"Appointer\": \"President of India | By | convention | , based on appointee's ability to | command confidence | in the | Lok Sabha\",\n    \"Term length\": \"At the pleasure of the president | Lok Sabha | term is 5 years unless dissolved sooner | No term limits specified\",\n    \"Constituting instrument\": \"Articles 74 & 75 of the | Constitution of India\",\n    \"Precursor\": \"Secretary of State for India | and | Vice President of the Executive Council\",\n    \"Formation\": \"15 August 1947 | ; 78 years ago | ( | 1947-08-15 | )\",\n    \"First holder\": \"Jawaharlal Nehru\",\n    \"Deputy\": \"Deputy Prime Minister\",\n    \"Salary\": \"\\u20b9 | 280,000 | (US$2,900) | (per month) | \\u20b9 | 3,360,000 | (US$35,000) | (annual)\",\n    \"Website\": \"pmindia | .gov | .in\"\n  },\n  \"points\": [\n    \"The prime minister of India is the head of government of the Republic of India.\",\n    \"Executive authority is vested in the prime minister and his chosen Council of Ministers, despite the President of India being the nominal head of the executive.\",\n    \"The prime minister has to be a member of one of the houses of bicameral Parliament of India, alongside heading the respective house.\",\n    \"The prime minister and the cabinet are at all times responsible to the Lok Sabha, the lower house of the parliament.\"\n  ],\n  \"query\": \"Prime Minister of India\",\n  \"synthesis\": \"- **Current Prime Minister:** Narendra\\u202fModi (in office since\\u202f26\\u202fMay\\u202f2014)  \\n- **Official titles:** The Honourable (formal), Mr.\\u202fPrime\\u202fMinister (informal), His\\u202fExcellency (diplomatic)  \\n- **Role:** Head of government of India  \\n- **Short form:** PM  \\n- **Part of:** Parliament of India and the Union Council of Ministers  \\n- **Reports to:** The President, the Vice President, and the Lok\\u202fSabha (lower house)  \\n- **Official residence:** Panchavati  \\n- **Office location:** Seva\\u202fTeerth, New\\u202fDelhi  \\n- **Who nominates:** Members of Parliament from the Lok\\u202fSabha  \\n- **Who appoints:** President of India (by convention, based on the appointee\\u2019s ability to command confidence of the Lok\\u202fSabha)  \\n- **Term details:** Serves at the President\\u2019s pleasure; Lok\\u202fSabha term is 5\\u202fyears unless dissolved early; no limit on number of terms  \\n- **Constitutional basis:** Articles\\u202f74\\u202f&\\u202f75 of the Constitution of India  \\n- **Historical predecessor:** Secretary of State for India and Vice President of the Executive Council  \\n- **Established:** 15\\u202fAugust\\u202f1947 (78\\u202fyears ago)  \\n- **First Prime Minister:** Jawaharlal\\u202fNehru  \\n- **Deputy position:** Deputy Prime Minister (when appointed)  \\n- **Pay:** \\u20b9280,000 per month (\\u2248\\u202fUS$2,900) \\u2192 \\u20b93,360,000 per year (\\u2248\\u202fUS$35,000)  \\n- **Official website:** pmindia.gov.in\"\n}\n```\n\n\nBenjamin Netanyahu is the current Prime Minister of Israel (in office as of July 2026)."
+    },
+    {
+      "id": "90cf0f0e-65fa-4ec6-8cd0-c90d55172597",
+      "role": "user",
+      "content": "pm of isreal not of india"
+    },
+    {
+      "id": "b79ffb51-37ee-4f1f-b3c2-e3a87588435e",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Prime Minister of Israel\",\n  \"url\": \"https://en.wikipedia.org/wiki/Prime_Minister_of_Israel\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Benjamin_Netanyahu%2C_February_2023.jpg/250px-Benjamin_Netanyahu%2C_February_2023.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Benjamin Netanyahu (since 29 December 2022)\",\n    \"Style\": \"His Excellency\",\n    \"Type\": \"Head of government\",\n    \"Residence\": \"Beit Aghion | , | Jerusalem\",\n    \"Nominator\": \"President\",\n    \"Appointer\": \"Knesset\",\n    \"Term length\": \"Four years, renewable indefinitely\",\n    \"Formation\": \"14 May 1948 | ; 78 years ago | ( | 14 May 1948 | )\",\n    \"First holder\": \"David Ben-Gurion\",\n    \"Salary\": \"US$ | 170,000 annually\",\n    \"Website\": \"pmo.gov.il\"\n  },\n  \"points\": [\n    \"The prime minister of Israel is the head of government and chief executive of the State of Israel.\"\n  ],\n  \"query\": \"Prime Minister of Israel\",\n  \"synthesis\": \"- **Current Leader:** Benjamin\\u202fNetanyahu (in office since\\u202f29\\u202fDecember\\u202f2022)  \\n- **Title:** His Excellency  \\n- **Role:** Head of government of Israel  \\n- **Official Residence:** Beit\\u202fAghion, Jerusalem  \\n- **Nominated By:** President of Israel  \\n- **Appointed By:** The Knesset (Israel\\u2019s parliament)  \\n- **Term Length:** Four years, with no limit on renewals  \\n- **Established:** 14\\u202fMay\\u202f1948 (78\\u202fyears ago)  \\n- **First Prime Minister:** David\\u202fBen\\u2011Gurion  \\n- **Salary:** US\\u202f$170,000 per year  \\n- **Official Website:** pmo.gov.il\"\n}\n```\n"
+    },
+    {
+      "id": "62d87a33-b5f3-417f-90da-1247944dc8e9",
+      "role": "user",
+      "content": "good"
+    },
+    {
+      "id": "2d617af7-4469-487a-95e9-3b46059c7556",
+      "role": "assistant",
+      "content": "Glad I could help! If you have any more questions, just let me know."
+    }
+  ],
+  "contextMessages": [
+    {
+      "id": "17ae7eea-4124-4868-820c-3a9c42400071",
+      "role": "user",
+      "content": "who is the current home minister"
+    },
+    {
+      "id": "413aef92-058b-4690-acff-8bd0aa527553",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Minister of Home Affairs (India)\",\n  \"url\": \"https://en.wikipedia.org/wiki/Minister_of_Home_Affairs_(India)\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Amit_Shah_photographed_during_the_first_Union_Cabinet_Meeting_of_the_18th_Lok_Sabha_%28cropped%29.jpg/330px-Amit_Shah_photographed_during_the_first_Union_Cabinet_Meeting_of_the_18th_Lok_Sabha_%28cropped%29.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Amit Shah (since 30 May 2019 ( 2019-05-30 ))\",\n    \"Abbreviation\": \"MHA\",\n    \"Member of\": \"Central Cabinet of India | Cabinet Committee on Security\",\n    \"Reports to\": \"President of India | Prime Minister of India | Parliament of India\",\n    \"Residence\": \"6A, Krishna Menon Marg, | New Delhi\",\n    \"Seat\": \"Room No. 104, | North Block | , | New Delhi\",\n    \"Appointer\": \"President of India | on the recommendation of the | Prime Minister\",\n    \"Formation\": \"15 August 1947\",\n    \"First holder\": \"Sardar Vallabhbhai Patel\",\n    \"Deputy\": \"Minister of State for Home Affairs\"\n  },\n  \"points\": [\n    \"The Minister of Home Affairs or the Home Minister is the head of the Ministry of Home Affairs of the Government of India.\",\n    \"One of the senior-most portfolios in the Central Cabinet, the chief responsibility of the home minister is the maintenance of the internal security of India; the country's large police force comes under its jurisdiction.\",\n    \"Occasionally, they are assisted by the minister of state of home affairs and the lower-ranked deputy minister of home affairs.\"\n  ],\n  \"query\": \"current Home Minister of India\",\n  \"synthesis\": \"- **Current Home Minister:** Amit\\u202fShah (in office since\\u202f30\\u202fMay\\u202f2019)  \\n- **Short form:** MHA (Ministry of Home Affairs)  \\n- **Part of:** Central Cabinet of India and the Cabinet Committee on Security  \\n- **Reports to:** President, Prime Minister, and Parliament of India  \\n- **Official residence:** 6A, Krishna\\u202fMenon\\u202fMarg, New\\u202fDelhi  \\n- **Office location:** Room\\u202fNo.\\u202f104, North Block, New\\u202fDelhi  \\n- **Appointed by:** President of India, on the Prime Minister\\u2019s recommendation  \\n- **Ministry created:** 15\\u202fAugust\\u202f1947  \\n- **First Home Minister:** Sardar\\u202fVallabhbhai\\u202fPatel  \\n- **Deputy minister:** Minister of State for Home Affairs\"\n}\n```\n"
+    },
+    {
+      "id": "7798085a-1ead-41ca-ac12-006abafd513e",
+      "role": "user",
+      "content": "who is the current pm of isreal"
+    },
+    {
+      "id": "e042fdd6-420b-4539-adee-801495080a80",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"List of prime ministers of Israel\",\n  \"url\": \"https://en.wikipedia.org/wiki/List_of_prime_ministers_of_Israel\",\n  \"image_url\": null,\n  \"facts\": {},\n  \"points\": [\n    \"The prime minister of Israel is the head of government and chief executive of the State of Israel.\"\n  ],\n  \"query\": \"current prime minister of Israel\",\n  \"synthesis\": \"- The prime minister of Israel serves as the head of government and chief executive of the State of Israel.  \\n- The supplied excerpt does not specify the name of the current office\\u2011holder.\"\n}\n```\n"
+    },
+    {
+      "id": "73135279-dd9b-49ab-b5fb-621f9dd206b4",
+      "role": "user",
+      "content": "i want the current pm name"
+    },
+    {
+      "id": "17df8830-f06a-440d-810d-bddf8470ca92",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Prime Minister of India\",\n  \"url\": \"https://en.wikipedia.org/wiki/Prime_Minister_of_India\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/The_official_portrait_of_Shri_Narendra_Modi%2C_the_Prime_Minister_of_the_Republic_of_India.jpg/250px-The_official_portrait_of_Shri_Narendra_Modi%2C_the_Prime_Minister_of_the_Republic_of_India.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Narendra Modi (since 26 May 2014)\",\n    \"Style\": \"The Honourable | (formal) | Mr. Prime Minister | (informal) | His Excellency | (diplomatic)\",\n    \"Type\": \"Head of government\",\n    \"Abbreviation\": \"PM\",\n    \"Member of\": \"Parliament of India | Union Council of Ministers\",\n    \"Reports to\": \"The President | The Vice President | Lok Sabha\",\n    \"Residence\": \"Panchavati\",\n    \"Seat\": \"Seva Teerth, New Delhi\",\n    \"Nominator\": \"MPs | of the | Lok Sabha\",\n    \"Appointer\": \"President of India | By | convention | , based on appointee's ability to | command confidence | in the | Lok Sabha\",\n    \"Term length\": \"At the pleasure of the president | Lok Sabha | term is 5 years unless dissolved sooner | No term limits specified\",\n    \"Constituting instrument\": \"Articles 74 & 75 of the | Constitution of India\",\n    \"Precursor\": \"Secretary of State for India | and | Vice President of the Executive Council\",\n    \"Formation\": \"15 August 1947 | ; 78 years ago | ( | 1947-08-15 | )\",\n    \"First holder\": \"Jawaharlal Nehru\",\n    \"Deputy\": \"Deputy Prime Minister\",\n    \"Salary\": \"\\u20b9 | 280,000 | (US$2,900) | (per month) | \\u20b9 | 3,360,000 | (US$35,000) | (annual)\",\n    \"Website\": \"pmindia | .gov | .in\"\n  },\n  \"points\": [\n    \"The prime minister of India is the head of government of the Republic of India.\",\n    \"Executive authority is vested in the prime minister and his chosen Council of Ministers, despite the President of India being the nominal head of the executive.\",\n    \"The prime minister has to be a member of one of the houses of bicameral Parliament of India, alongside heading the respective house.\",\n    \"The prime minister and the cabinet are at all times responsible to the Lok Sabha, the lower house of the parliament.\"\n  ],\n  \"query\": \"Prime Minister of India\",\n  \"synthesis\": \"- **Current Prime Minister:** Narendra\\u202fModi (in office since\\u202f26\\u202fMay\\u202f2014)  \\n- **Official titles:** The Honourable (formal), Mr.\\u202fPrime\\u202fMinister (informal), His\\u202fExcellency (diplomatic)  \\n- **Role:** Head of government of India  \\n- **Short form:** PM  \\n- **Part of:** Parliament of India and the Union Council of Ministers  \\n- **Reports to:** The President, the Vice President, and the Lok\\u202fSabha (lower house)  \\n- **Official residence:** Panchavati  \\n- **Office location:** Seva\\u202fTeerth, New\\u202fDelhi  \\n- **Who nominates:** Members of Parliament from the Lok\\u202fSabha  \\n- **Who appoints:** President of India (by convention, based on the appointee\\u2019s ability to command confidence of the Lok\\u202fSabha)  \\n- **Term details:** Serves at the President\\u2019s pleasure; Lok\\u202fSabha term is 5\\u202fyears unless dissolved early; no limit on number of terms  \\n- **Constitutional basis:** Articles\\u202f74\\u202f&\\u202f75 of the Constitution of India  \\n- **Historical predecessor:** Secretary of State for India and Vice President of the Executive Council  \\n- **Established:** 15\\u202fAugust\\u202f1947 (78\\u202fyears ago)  \\n- **First Prime Minister:** Jawaharlal\\u202fNehru  \\n- **Deputy position:** Deputy Prime Minister (when appointed)  \\n- **Pay:** \\u20b9280,000 per month (\\u2248\\u202fUS$2,900) \\u2192 \\u20b93,360,000 per year (\\u2248\\u202fUS$35,000)  \\n- **Official website:** pmindia.gov.in\"\n}\n```\n\n\nBenjamin Netanyahu is the current Prime Minister of Israel (in office as of July 2026)."
+    },
+    {
+      "id": "90cf0f0e-65fa-4ec6-8cd0-c90d55172597",
+      "role": "user",
+      "content": "pm of isreal not of india"
+    },
+    {
+      "id": "b79ffb51-37ee-4f1f-b3c2-e3a87588435e",
+      "role": "assistant",
+      "content": "\n```wikipedia\n{\n  \"title\": \"Prime Minister of Israel\",\n  \"url\": \"https://en.wikipedia.org/wiki/Prime_Minister_of_Israel\",\n  \"image_url\": \"https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Benjamin_Netanyahu%2C_February_2023.jpg/250px-Benjamin_Netanyahu%2C_February_2023.jpg\",\n  \"facts\": {\n    \"Incumbent\": \"Benjamin Netanyahu (since 29 December 2022)\",\n    \"Style\": \"His Excellency\",\n    \"Type\": \"Head of government\",\n    \"Residence\": \"Beit Aghion | , | Jerusalem\",\n    \"Nominator\": \"President\",\n    \"Appointer\": \"Knesset\",\n    \"Term length\": \"Four years, renewable indefinitely\",\n    \"Formation\": \"14 May 1948 | ; 78 years ago | ( | 14 May 1948 | )\",\n    \"First holder\": \"David Ben-Gurion\",\n    \"Salary\": \"US$ | 170,000 annually\",\n    \"Website\": \"pmo.gov.il\"\n  },\n  \"points\": [\n    \"The prime minister of Israel is the head of government and chief executive of the State of Israel.\"\n  ],\n  \"query\": \"Prime Minister of Israel\",\n  \"synthesis\": \"- **Current Leader:** Benjamin\\u202fNetanyahu (in office since\\u202f29\\u202fDecember\\u202f2022)  \\n- **Title:** His Excellency  \\n- **Role:** Head of government of Israel  \\n- **Official Residence:** Beit\\u202fAghion, Jerusalem  \\n- **Nominated By:** President of Israel  \\n- **Appointed By:** The Knesset (Israel\\u2019s parliament)  \\n- **Term Length:** Four years, with no limit on renewals  \\n- **Established:** 14\\u202fMay\\u202f1948 (78\\u202fyears ago)  \\n- **First Prime Minister:** David\\u202fBen\\u2011Gurion  \\n- **Salary:** US\\u202f$170,000 per year  \\n- **Official Website:** pmo.gov.il\"\n}\n```\n"
+    },
+    {
+      "id": "62d87a33-b5f3-417f-90da-1247944dc8e9",
+      "role": "user",
+      "content": "good"
+    },
+    {
+      "id": "2d617af7-4469-487a-95e9-3b46059c7556",
+      "role": "assistant",
+      "content": "Glad I could help! If you have any more questions, just let me know."
+    }
+  ],
+  "rolling_summary": "",
+  "compression_epoch": 0,
+  "summary_history": [],
+  "hasUserTitle": true,
+  "pinned": false,
+  "archived": false
+}

@@ -4,17 +4,30 @@ from src.search_agent.utils.cache import async_ttl_cache
 
 def _sync_yfinance(query: str):
     import yfinance as yf
-    # YFinance expects tickers like "AAPL" or "RELIANCE.NS"
-    ticker = yf.Ticker(query.upper())
+    import requests
+    import urllib.parse
+    
+    # Resolve ticker via Yahoo Search API
+    symbol = query.upper()
+    try:
+        search_url = f"https://query2.finance.yahoo.com/v1/finance/search?q={urllib.parse.quote(query)}"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        res = requests.get(search_url, headers=headers, timeout=3.0).json()
+        if "quotes" in res and len(res["quotes"]) > 0:
+            symbol = res["quotes"][0]["symbol"]
+    except Exception:
+        pass
+        
+    ticker = yf.Ticker(symbol)
     info = ticker.info
     
     if "currentPrice" in info or "regularMarketPrice" in info:
         price = info.get("currentPrice") or info.get("regularMarketPrice", "Unknown")
-        name = info.get("shortName", query.upper())
+        name = info.get("shortName", symbol)
         currency = info.get("currency", "")
         return [{
-            "title": f"Yahoo Finance: {name} ({query.upper()})",
-            "url": f"https://finance.yahoo.com/quote/{query.upper()}",
+            "title": f"Yahoo Finance: {name} ({symbol})",
+            "url": f"https://finance.yahoo.com/quote/{symbol}",
             "content": f"Current Price: {price} {currency}\nSector: {info.get('sector', 'Unknown')}"
         }]
     return []

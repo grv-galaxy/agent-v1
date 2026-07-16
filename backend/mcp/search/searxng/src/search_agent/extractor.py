@@ -16,52 +16,37 @@ _HEADERS = {
     "Upgrade-Insecure-Requests": "1",
 }
 
-def _httpx_fetch_and_extract(url: str) -> str | None:
+def _fast_trafilatura_extract(u):
+    downloaded = trafilatura.fetch_url(u)
+    if downloaded:
+        return trafilatura.extract(downloaded)
+    return None
+
+async def extract_url(url: str, query: str = "", min_length: int = 200) -> str | None:
     """
-    Fetches a URL using httpx with realistic browser headers and then 
-    extracts the main text content using trafilatura.
+    Extracts the main content from a URL using SOTA methods via the FastMCP engine.
     """
-    try:
-        with httpx.Client(headers=_HEADERS, follow_redirects=True, timeout=15.0) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            return trafilatura.extract(response.text)
-    except Exception as e:
-        print(f"[extractor] httpx fetch failed for {url}: {e}")
+    # --- PDF RAG Path ---
+    if url.lower().endswith('.pdf'):
+        print(f"[extractor] PDF detected for {url}. Routing to FastMCP RAG...")
+        from src.search_agent.mcp_server import extract_pdf_rag
+        pdf_text = await extract_pdf_rag(url, query)
+        if pdf_text and not pdf_text.startswith("Error"):
+            return pdf_text.strip()
         return None
 
-async def extract_url(url: str, min_length: int = 200) -> str | None:
-    """
-    Extracts the main content from a URL.
-    
-    Strategy:
-    1. Fast path: trafilatura's built-in fetcher (uses simple requests internally)
-    2. Fallback: httpx with full browser-like headers to overcome bot-blockers
-    
-    Playwright has been removed entirely because it requires subprocess spawning
-    which conflicts with Uvicorn's SelectorEventLoop on Windows.
-    """
-    
     # --- Primary Fast Path (Trafilatura) ---
-    def _fetch_and_extract(u):
-        downloaded = trafilatura.fetch_url(u)
-        if downloaded:
-            return trafilatura.extract(downloaded)
-        return None
-        
-    text = await asyncio.to_thread(_fetch_and_extract, url)
+    text = await asyncio.to_thread(_fast_trafilatura_extract, url)
     
-    # If the text is meaningful enough, return it immediately
     if text and len(text.strip()) >= min_length:
         return text.strip()
         
-    # --- Fallback Path (httpx with realistic headers) ---
-    # Triggered if trafilatura returns None or very short text (bot-blocked / SPA)
-    print(f"[extractor] Static extraction insufficient for {url}. Trying httpx with browser headers...")
-    dynamic_text = await asyncio.to_thread(_httpx_fetch_and_extract, url)
+    # --- Fallback Path (Playwright Stealth MCP Tool) ---
+    print(f"[extractor] Static extraction insufficient for {url}. Routing to FastMCP Playwright...")
+    from src.search_agent.mcp_server import extract_webpage
+    dynamic_text = await extract_webpage(url)
     
-    if dynamic_text and len(dynamic_text.strip()) >= min_length:
+    if dynamic_text and not dynamic_text.startswith("Error"):
         return dynamic_text.strip()
         
-    # If all else fails, return whatever was found initially, or None
     return text.strip() if text else None
